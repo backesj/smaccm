@@ -7,10 +7,13 @@ import java.util.List;
 import java.util.Map;
 
 import jkind.api.results.AnalysisResult;
+import jkind.api.results.JKindResult;
 import jkind.api.results.JRealizabilityResult;
+import jkind.api.results.MapRenaming;
 import jkind.api.results.PropertyResult;
 import jkind.api.ui.results.AnalysisResultTree;
 import jkind.interval.NumericInterval;
+import jkind.lustre.Node;
 import jkind.lustre.Program;
 import jkind.lustre.values.Value;
 import jkind.results.Counterexample;
@@ -18,6 +21,7 @@ import jkind.results.InvalidProperty;
 import jkind.results.Property;
 import jkind.results.Signal;
 import jkind.results.UnknownProperty;
+import jkind.results.ValidProperty;
 import jkind.results.layout.Layout;
 
 import org.eclipse.emf.ecore.EObject;
@@ -49,6 +53,8 @@ import com.rockwellcollins.atc.agree.agree.FnCallExpr;
 import com.rockwellcollins.atc.agree.agree.GuaranteeStatement;
 import com.rockwellcollins.atc.agree.agree.LemmaStatement;
 import com.rockwellcollins.atc.agree.analysis.Util;
+import com.rockwellcollins.atc.agree.analysis.ast.AgreeNode;
+import com.rockwellcollins.atc.agree.analysis.ast.AgreeProgram;
 import com.rockwellcollins.atc.agree.analysis.extentions.CexExtractor;
 import com.rockwellcollins.atc.agree.analysis.extentions.CexExtractorRegistry;
 import com.rockwellcollins.atc.agree.analysis.extentions.ExtensionRegistry;
@@ -70,7 +76,7 @@ public class AgreeMenuListener implements IMenuListener {
 
     @Override
     public void menuAboutToShow(IMenuManager manager) {
-        IStructuredSelection selection = (IStructuredSelection) tree.getViewer().getSelection();
+    	IStructuredSelection selection = (IStructuredSelection) tree.getViewer().getSelection();
         if (!selection.isEmpty()) {
             AnalysisResult result = (AnalysisResult) selection.getFirstElement();
             addLinkedMenus(manager, result);
@@ -78,12 +84,52 @@ public class AgreeMenuListener implements IMenuListener {
     }
 
     private void addLinkedMenus(IMenuManager manager, AnalysisResult result) {
-        addOpenComponentMenu(manager, result);
+        System.out.println("addLinkedMenus ");
+    	addOpenComponentMenu(manager, result);
         addOpenContractMenu(manager, result);
         addViewLogMenu(manager, result);
         addViewCounterexampleMenu(manager, result);
         addViewLustreMenu(manager, result);
         addResultsLinkingMenu(manager, result);
+        addViewValidMenu(manager, result);
+    }
+    
+    private void addViewValidMenu(IMenuManager manager, AnalysisResult result) {
+    	System.out.println("addViewValidMenu ");
+         if (result instanceof PropertyResult) {        	 
+        	 if (((PropertyResult) result).getStatus().equals(jkind.api.results.Status.VALID) ){ 
+        		 ValidProperty vp = (ValidProperty)(((PropertyResult) result).getProperty());
+        		 
+        		 //Anitha: I need to link the support names back to the actual component names. 
+        		Program program = linker.getProgram(result);
+    	        if (program == null && result instanceof PropertyResult) {
+    	            program = linker.getProgram(result.getParent());
+    	        }
+        		 //System.out.println( program.toString());
+    	         Node mainNode = program.getMainNode();
+        		 for (Node agreeNodes : program.nodes) {
+        			 System.out.println( agreeNodes.id);
+        			 System.out.println( mainNode.inputs);
+        		 }
+        		 
+        		 String supportDisplay  = "SET OF SUPPORT"+" for Gurantee: "+vp.getName()+"\n";
+        		 supportDisplay += "==============================================="+"\n";
+        		 supportDisplay += "Component name\t|\tProperty name"+"\n";
+        		 supportDisplay += "-----------------------------------------------"+"\n";
+        		 for (String supportString : vp.getSupport()) {        			 
+        			String componentName =  supportString.substring(0,supportString.indexOf('.'));        			
+        			supportDisplay += componentName.substring(componentName.indexOf("__")+2,componentName.length())+"\t|\t";
+        				
+         			//System.out.println(" supportString " + supportString);
+        			// supportDisplay +=  supportString.substring(0,supportString.indexOf('.'))+"\t|\t";
+        			 
+        			 supportDisplay +=  supportString.substring(supportString.indexOf('.')+1,supportString.length())+"\n"; 
+         		 }
+        		supportDisplay += "------------------------------------------------"+"\n";
+        		System.out.println("supportDisplay\n" + supportDisplay);
+        		manager.add(createWriteConsoleAction("View Set of Support Support", "Support", supportDisplay)); 
+        	 }
+         }
     }
 
     private void addOpenComponentMenu(IMenuManager manager, AnalysisResult result) {
@@ -245,10 +291,11 @@ public class AgreeMenuListener implements IMenuListener {
         return new Action(actionName) {
             @Override
             public void run() {
-                final MessageConsole console = findConsole(consoleName);
+         
+            	final MessageConsole console = findConsole(consoleName);
                 showConsole(console);
                 console.clearConsole();
-
+                System.out.println("content on console: " + content);
                 /*
                  * From the Eclipse API: "Clients should avoid writing large
                  * amounts of output to this stream in the UI thread. The

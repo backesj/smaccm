@@ -7,6 +7,7 @@ import java.util.Set;
 
 import org.eclipse.emf.ecore.EObject;
 
+import jkind.JKindException;
 import jkind.api.results.Renaming;
 import jkind.results.InvalidProperty;
 import jkind.results.Property;
@@ -39,7 +40,7 @@ public class AgreeRenaming extends Renaming {
         newName = newName.replace("~condact", "");
         newName = newName.replaceAll("~[0-9]*", "");
         //the following is special for kind 2 contracts
-        newName = newName.replaceAll("__global.ensure\\[.*?\\]", "");
+        newName = newName.replaceAll("guarantee\\[.*?\\]", "");
         newName = newName.replace("__", ".");
 
         return newName;
@@ -48,7 +49,33 @@ public class AgreeRenaming extends Renaming {
 
     @Override
     public Property rename(Property property) {
-       return property;
+        //another hack for kind2
+       if(property.getName().matches("guarantee\\[.*?\\]")){
+           return renameKind2Prop(property);
+           //return property;
+       }
+       return super.rename(property);
+    }
+    
+    private Property renameKind2Prop(Property property){
+        if(property instanceof InvalidProperty){
+            InvalidProperty renamedInvalid = (InvalidProperty)property;
+            return new InvalidProperty(renamedInvalid.getName(), 
+                    renamedInvalid.getSource(), 
+                    rename(renamedInvalid.getCounterexample()), 
+                    renamedInvalid.getConflicts(), 
+                    renamedInvalid.getRuntime());
+        }else if(property instanceof UnknownProperty){
+            UnknownProperty renamedUnknown = (UnknownProperty)property;
+            return new UnknownProperty(renamedUnknown.getName(), 
+                    renamedUnknown.getTrueFor(), 
+                    rename(renamedUnknown.getInductiveCounterexample()), 
+                    renamedUnknown.getRuntime());
+        }
+        if(!(property instanceof ValidProperty)){
+            throw new AgreeException("Unexpected property type");
+        }
+        return property;
     }
     
     @Override
@@ -66,7 +93,12 @@ public class AgreeRenaming extends Renaming {
             } else if (original.contains("__nodeLemma")) {
                 return newName;
             } else if(newName.matches(".*\\[[0-9]*\\]")){
-                return this.explicitRenames.get(newName);
+                //kind2 hacks
+               newName = this.explicitRenames.get(newName);
+//               if(newName == null){
+//                   return original;
+//               }
+               return newName;
             }
             return null;
         }

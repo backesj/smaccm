@@ -13,10 +13,20 @@ import com.rockwellcollins.atc.agree.analysis.Activator;
 
 public class PreferencesUtil {
     public static KindApi getKindApi() {
+    	
+    	 //System.out.println(""In Preferences Util getKindApi ");
         IPreferenceStore prefs = getPreferenceStore();
         String modelChecker = prefs.getString(PreferenceConstants.PREF_MODEL_CHECKER);
         String remoteUrl = prefs.getString(PreferenceConstants.PREF_REMOTE_URL);
-        return getKindApi(modelChecker, remoteUrl);
+        
+        //System.out.println(""modelChecker "+modelChecker );
+        //System.out.println(""remoteUrl "+remoteUrl );
+        
+        KindApi api = getKindApi(modelChecker, remoteUrl);
+        if (prefs.getBoolean(PreferenceConstants.PREF_DEBUG)) {
+        	api.setApiDebug();
+        }
+        return api;
     }
 
     private static IPreferenceStore getPreferenceStore() {
@@ -24,7 +34,10 @@ public class PreferencesUtil {
     }
 
     public static KindApi getKindApi(String modelChecker, String remoteUrl) {
-        switch (modelChecker) {
+    	
+    	//System.out.println(""In Preferences Util getKindApi");
+    	
+    	switch (modelChecker) {
         case PreferenceConstants.MODEL_CHECKER_JKIND:
             return getJKindApi();
         case PreferenceConstants.MODEL_CHECKER_KIND2:
@@ -51,6 +64,9 @@ public class PreferencesUtil {
     }
 
     private static JKindApi getJKindApi() {
+    	
+    	//System.out.println(""In Preferences Util getJKindApi");
+    	
         IPreferenceStore prefs = getPreferenceStore();
         JKindApi api = new JKindApi();
 
