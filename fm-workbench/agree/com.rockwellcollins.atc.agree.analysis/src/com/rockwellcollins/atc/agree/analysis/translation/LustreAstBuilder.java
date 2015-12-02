@@ -575,9 +575,8 @@ public class LustreAstBuilder {
        System.out.println(" getQualifiedName : " + compClass.getQualifiedName());
        System.out.println(" qualifiedName : " + compClass.qualifiedName());
        System.out.println(" getElementRoot : " + compClass.getElementRoot());
-       // System.out.println(" Component compInst : " + agreeNode.reference);
+       System.out.println(" Component compInst : " + agreeNode.reference);
         //System.out.println(" Component getName : " + agreeNode.compInst.getConnectionInstances());
-        
         //System.out.println(" Component compInst : " + agreeNode.compInst.getc); 
         
         
