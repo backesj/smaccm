@@ -39,6 +39,9 @@ public abstract class AadlHandler extends AbstractHandler {
 
     @Override
     public Object execute(ExecutionEvent event) {
+    	
+    	System.out.println("in execute :" + event.toString());
+    	 
         EObjectNode node = getEObjectNode(HandlerUtil.getCurrentSelection(event));
         if (node == null) {
             return null;
@@ -54,6 +57,9 @@ public abstract class AadlHandler extends AbstractHandler {
     }
 
     public Object executeURI(final URI uri) {
+    	
+    	System.out.println("in execute URI : uri :" + uri.toString());
+ 
         final XtextEditor xtextEditor = EditorUtils.getActiveXtextEditor();
         if (xtextEditor == null) {
             return null;

@@ -67,6 +67,7 @@ public class LustreAstBuilder {
     protected static final String guarSuffix = "__GUARANTEE";
     protected static final String assumeSuffix = "__ASSUME";
     protected static final String lemmaSuffix = "__LEMMA";
+    public static final String dotChar = "__";
 
     public static Program getRealizabilityLustreProgram(AgreeProgram agreeProgram) {
 
@@ -183,6 +184,8 @@ public class LustreAstBuilder {
         for (AgreeStatement assertion : flatNode.assertions) {
             assertions.add(assertion.expr);
         }
+        
+        //System.out.println("flatNode.compInst : "+ flatNode.compInst.getFullName());
 
         int i = 0;
         for (AgreeStatement guarantee : flatNode.lemmas) {
@@ -221,6 +224,8 @@ public class LustreAstBuilder {
         nodes.add(main);
         nodes.addAll(agreeProgram.globalLustreNodes);
         Program program = new Program(types, null, nodes, main.id);
+        
+        //System.out.println("............getAssumeGuaranteeLustreProgram ....");//....\n "+ program.toString());
 
         return program;
 
@@ -440,12 +445,16 @@ public class LustreAstBuilder {
     }
 
     protected static Node getLustreNode(AgreeNode agreeNode, String nodePrefix, boolean monolithic) {
-
-        List<VarDecl> inputs = new ArrayList<>();
+       
+    //	System.out.println("............ getLustreNode ............. ");
+    	
+    	List<VarDecl> inputs = new ArrayList<>();
         List<VarDecl> locals = new ArrayList<>();
         List<Equation> equations = new ArrayList<>();
         List<Expr> assertions = new ArrayList<>();
-
+        List<String> setofsupport = new ArrayList<>();
+        //anitha: this has to be an input
+        boolean needSupport=true; 
         Expr assumeConjExpr = new BoolExpr(true);
         int i = 0;
         for (AgreeStatement statement : agreeNode.assumptions) {
@@ -477,16 +486,40 @@ public class LustreAstBuilder {
         equations.add(new Equation(assumeConjId, assumeConjExpr));
         equations.add(getHist(assumeHistId, assumeConjId));
 
+        int count=0;
+        //Anitha I need to fix the monolithic case here.       
         Expr guarConjExpr = new BoolExpr(true);
-        for (AgreeStatement statement : agreeNode.guarantees) {
-            guarConjExpr = new BinaryExpr(statement.expr, BinaryOp.AND, guarConjExpr);
-        }
         if (monolithic) {
+	        for (AgreeStatement statement : agreeNode.guarantees) {
+	            guarConjExpr = new BinaryExpr(statement.expr, BinaryOp.AND, guarConjExpr);
+	        }        
+	        
             for (AgreeStatement statement : agreeNode.lemmas) {
                 guarConjExpr = new BinaryExpr(statement.expr, BinaryOp.AND, guarConjExpr);
             }
+        }else{ 
+        
+	        /*---------------Anitha added this code---------------/*/
+	        Expr true_exp = new BoolExpr(true);
+	        for (AgreeStatement statement : agreeNode.guarantees) {
+	            
+	        	String guaranteeName = dotChar+agreeNode.id+dotChar+"PROP"+dotChar+count;
+	            locals.add(new AgreeVar(guaranteeName, NamedType.BOOL,statement.reference, agreeNode.compInst));
+	        	
+	            //making each gurantee an expression assigned to a new variabl;e. 
+	            equations.add(new Equation(new IdExpr(guaranteeName), statement.expr));
+	            count++;
+	            //preparing the conjunction of all gurantees for final assert. 
+	            IdExpr newPropName = new IdExpr(guaranteeName);
+	            guarConjExpr = new BinaryExpr(newPropName, BinaryOp.AND, guarConjExpr);
+	            if (needSupport) {
+		            setofsupport.add(guaranteeName);
+		        }
+	        }
         }
-        assertions.add(new BinaryExpr(assumeHistId, BinaryOp.IMPLIES, guarConjExpr));
+       
+        //this makes history => gurantees expression
+        Expr guarExpr = new BinaryExpr(assumeHistId, BinaryOp.IMPLIES, guarConjExpr);
 
         // we only add the assertions of an agreenode if we are performing
         // monolithic verification. However, we should add EQ statements
@@ -497,29 +530,72 @@ public class LustreAstBuilder {
             }
         }
 
+       //If there are equations and expressions, then
+       //each expression should be assigned to a new variable       
         Expr assertExpr = new BoolExpr(true);
+        count=0;
         for (Expr expr : assertions) {
-            assertExpr = new BinaryExpr(expr, BinaryOp.AND, assertExpr);
-        }
+        	// System.out.println("expr : " + expr.toString());
+        	 String exprName = dotChar+agreeNode.id+dotChar+"EXP"+dotChar+count;
+        	 locals.add(new VarDecl(exprName, NamedType.BOOL)); //declare variable
+             equations.add(new Equation(new IdExpr(exprName), expr));
+             count++;
+             if (needSupport) {
+		            setofsupport.add(exprName);
+		     }
+             
+             IdExpr newAssertName = new IdExpr(exprName);
+             assertExpr = new BinaryExpr(newAssertName, BinaryOp.AND, assertExpr);
+	            
+         }
+        assertExpr = new BinaryExpr(assertExpr, BinaryOp.AND, new BinaryExpr(assumeHistId, BinaryOp.IMPLIES, guarConjExpr));
+        //---------------Anitha added this code---------------*/
+        
+        
+      //  System.out.println("assertExpr : " + assertExpr.toString());
 
         String outputName = "__ASSERT";
         List<VarDecl> outputs = new ArrayList<>();
         outputs.add(new VarDecl(outputName, NamedType.BOOL));
-        equations.add(new Equation(new IdExpr(outputName), assertExpr));
-
+        equations.add(new Equation(new IdExpr(outputName), assertExpr));        
+        
         // gather the remaining inputs
         for (AgreeVar var : agreeNode.inputs) {
             inputs.add(var);
         }
         for (AgreeVar var : agreeNode.outputs) {
             inputs.add(var);
-        }
-
+        }        
+        
+        
+       System.out.println("\n\n  Component id : " + agreeNode.id);
+       System.out.println("Component compInst : " + agreeNode.compInst);
+       ComponentClassifier compClass = agreeNode.compInst.getComponentClassifier();
+       System.out.println(" getName : " + compClass.getName());
+       System.out.println(" getQualifiedName : " + compClass.getQualifiedName());
+       System.out.println(" qualifiedName : " + compClass.qualifiedName());
+       System.out.println(" getElementRoot : " + compClass.getElementRoot());
+       // System.out.println(" Component compInst : " + agreeNode.reference);
+        //System.out.println(" Component getName : " + agreeNode.compInst.getConnectionInstances());
+        
+        //System.out.println(" Component compInst : " + agreeNode.compInst.getc); 
+        
+        
+       // System.out.println(" Component getContainingComponentImpl : " + agreeNode.compInst.getContainingComponentImpl());
+       // System.out.println(" Component getContainingComponentImpl : " + agreeNode.compInst.getContainingComponentInstance().getAllFeatureInstances());
+        
+        
+        //locals.add(new AgreeVar(guaranteeName, NamedType.BOOL,statement.reference, agreeNode.compInst));
+ 
         NodeBuilder builder = new NodeBuilder(nodePrefix + agreeNode.id);
         builder.addInputs(inputs);
         builder.addOutputs(outputs);
         builder.addLocals(locals);
         builder.addEquations(equations);
+        //Anitha Added this line to set set of support
+        builder.addSupport(setofsupport);
+        
+     //   System.out.println(" Lustre Program: \n"+ builder.build().toString());
         
         return builder.build();
     }

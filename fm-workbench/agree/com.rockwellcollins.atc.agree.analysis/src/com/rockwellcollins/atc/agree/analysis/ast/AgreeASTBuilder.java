@@ -141,7 +141,13 @@ public class AgreeASTBuilder extends AgreeSwitch<Expr> {
     private ComponentInstance curInst; // used for Get_Property Expressions
 
     public AgreeProgram getAgreeProgram(ComponentInstance compInst) {
+    	
+    	
+    	System.out.println(" ********** getAgreeProgram ************");
 
+    	
+    	//System.out.println("compInst : "+ compInst);
+    	
         globalNodes = new ArrayList<>();
         globalTypes = new HashSet<>();
         typeMap = new HashMap<>();
@@ -200,10 +206,15 @@ public class AgreeASTBuilder extends AgreeSwitch<Expr> {
         boolean foundSubNode = false;
         boolean hasDirectAnnex = false;
         ComponentClassifier compClass = compInst.getComponentClassifier();
+       // System.out.println("compInst : "+ compInst);
+       // System.out.println("compClass : "+ compClass);
+        
         if (compClass instanceof ComponentImplementation) {
             AgreeContractSubclause annex = getAgreeAnnex(compClass);
 
             for (ComponentInstance subInst : compInst.getComponentInstances()) {
+            	
+            	//System.out.println("subInst : "+ subInst);
                 curInst = subInst;
                 AgreeNode subNode = getAgreeNode(subInst);
                 if (subNode != null) {

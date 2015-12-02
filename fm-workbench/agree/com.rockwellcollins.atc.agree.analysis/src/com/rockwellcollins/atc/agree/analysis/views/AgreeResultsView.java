@@ -15,6 +15,8 @@ public class AgreeResultsView extends ViewPart {
 
     @Override
     public void createPartControl(Composite parent) {
+    	
+    	System.out.println("---createPartControl-----");
         tree = new AnalysisResultTree(parent);
         tree.getViewer().setAutoExpandLevel(2);
 
