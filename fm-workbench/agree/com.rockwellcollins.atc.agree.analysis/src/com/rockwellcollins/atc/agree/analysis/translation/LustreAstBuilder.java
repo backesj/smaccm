@@ -97,7 +97,7 @@ public class LustreAstBuilder {
             equations.add(new Equation(new IdExpr(guarName), guarantee.expr));
             properties.add(guarName);
         }
-
+     
         List<String> inputStrs = new ArrayList<>();
         for (AgreeVar var : topNode.inputs) {
             inputs.add(var);
@@ -105,6 +105,7 @@ public class LustreAstBuilder {
         }
 
         for (AgreeVar var : topNode.outputs) {
+        	
             inputs.add(var);
         }
 
@@ -185,8 +186,7 @@ public class LustreAstBuilder {
             assertions.add(assertion.expr);
         }
         
-        //System.out.println("flatNode.compInst : "+ flatNode.compInst.getFullName());
-
+        
         int i = 0;
         for (AgreeStatement guarantee : flatNode.lemmas) {
             String guarName = guarSuffix + i++;
@@ -446,7 +446,7 @@ public class LustreAstBuilder {
 
     protected static Node getLustreNode(AgreeNode agreeNode, String nodePrefix, boolean monolithic) {
        
-    //	System.out.println("............ getLustreNode ............. ");
+       // System.out.println("\n............ getLustreNode ............. " + agreeNode.id);
     	
     	List<VarDecl> inputs = new ArrayList<>();
         List<VarDecl> locals = new ArrayList<>();
@@ -457,6 +457,9 @@ public class LustreAstBuilder {
         boolean needSupport=true; 
         Expr assumeConjExpr = new BoolExpr(true);
         int i = 0;
+        
+        //locals.add(new AgreeVar(agreeNode.id, NamedType.BOOL,null, agreeNode.compInst));
+        
         for (AgreeStatement statement : agreeNode.assumptions) {
             String inputName = assumeSuffix + i++;
             inputs.add(new AgreeVar(inputName, NamedType.BOOL, statement.reference, agreeNode.compInst));
@@ -502,11 +505,14 @@ public class LustreAstBuilder {
 	        /*---------------Anitha added this code---------------/*/
 	        Expr true_exp = new BoolExpr(true);
 	        for (AgreeStatement statement : agreeNode.guarantees) {
-	            
-	        	String guaranteeName = dotChar+agreeNode.id+dotChar+"PROP"+dotChar+count;
+	        	//System.out.println("agreeNode   :  " + agreeNode.id);
+	            String guaranteeName = dotChar+agreeNode.id+dotChar+"PROP"+dotChar+count;
 	            locals.add(new AgreeVar(guaranteeName, NamedType.BOOL,statement.reference, agreeNode.compInst));
-	        	
-	            //making each gurantee an expression assigned to a new variabl;e. 
+	        	//System.out.println("statement.expr :  " + statement.expr);
+	        	//System.out.println("statement.expr :  " + statement.toString());
+	        	//System.out.println("statement.reference :  " + statement.reference);
+	            
+	        	//making each gurantee an expression assigned to a new variabl;e. 
 	            equations.add(new Equation(new IdExpr(guaranteeName), statement.expr));
 	            count++;
 	            //preparing the conjunction of all gurantees for final assert. 
@@ -529,30 +535,47 @@ public class LustreAstBuilder {
                 assertions.add(statement.expr);
             }
         }
-
-       //If there are equations and expressions, then
-       //each expression should be assigned to a new variable       
+        //Anitha added this code.
+        //If there are equations and expressions, then
+        //each expression should be assigned to a new variable       
+        
         Expr assertExpr = new BoolExpr(true);
         count=0;
+        
         for (Expr expr : assertions) {
-        	// System.out.println("expr : " + expr.toString());
-        	 String exprName = dotChar+agreeNode.id+dotChar+"EXP"+dotChar+count;
-        	 locals.add(new VarDecl(exprName, NamedType.BOOL)); //declare variable
-             equations.add(new Equation(new IdExpr(exprName), expr));
+        	//Anitha: I had to get a refernce for the equations. So I make the variables
+        	//in the LHS as the reference.
+        	//System.out.println("\n expr " + expr.toString());			
+			String lhs =  expr.toString().substring(1,expr.toString().indexOf('=')).trim();        			
+			//System.out.println("LustreAST lhs " + lhs);			
+			String exprName = dotChar+agreeNode.id+dotChar+"EXP"+dotChar+count;
+        	 //Anitha: I dont know how to put a reference for equations.
+        	 EObject ref = null;
+        	 for (AgreeVar var : agreeNode.outputs) {
+        	//	 System.out.println("================In loop ==================");
+        		 ref = null; 
+        		 //System.out.println("\n entering loop LustreAST var:" + var.id.toString().trim());	
+        		 //System.out.println("LustreAST lhs " + lhs);	
+        		 if (var.id != null && var.id.toString().equals(lhs)) {
+        		//	 System.out.println("========> Inside_comapare :: " + var.id);
+        			  ref = var.reference;
+        			  break;
+        		 }
+             }
+        	// System.out.println(" Breaking here ........ " + ref.toString());
+        	 locals.add(new AgreeVar(exprName, NamedType.BOOL, ref , agreeNode.compInst));
+        	 equations.add(new Equation(new IdExpr(exprName), expr));
              count++;
              if (needSupport) {
 		            setofsupport.add(exprName);
 		     }
-             
              IdExpr newAssertName = new IdExpr(exprName);
              assertExpr = new BinaryExpr(newAssertName, BinaryOp.AND, assertExpr);
-	            
          }
         assertExpr = new BinaryExpr(assertExpr, BinaryOp.AND, new BinaryExpr(assumeHistId, BinaryOp.IMPLIES, guarConjExpr));
         //---------------Anitha added this code---------------*/
-        
-        
-      //  System.out.println("assertExpr : " + assertExpr.toString());
+                
+       ////System.out.println("assertExpr : " + assertExpr.toString());
 
         String outputName = "__ASSERT";
         List<VarDecl> outputs = new ArrayList<>();
@@ -567,32 +590,13 @@ public class LustreAstBuilder {
             inputs.add(var);
         }        
         
-        
-       System.out.println("\n\n  Component id : " + agreeNode.id);
-       System.out.println("Component compInst : " + agreeNode.compInst);
-       ComponentClassifier compClass = agreeNode.compInst.getComponentClassifier();
-       System.out.println(" getName : " + compClass.getName());
-       System.out.println(" getQualifiedName : " + compClass.getQualifiedName());
-       System.out.println(" qualifiedName : " + compClass.qualifiedName());
-       System.out.println(" getElementRoot : " + compClass.getElementRoot());
-       System.out.println(" Component compInst : " + agreeNode.reference);
-        //System.out.println(" Component getName : " + agreeNode.compInst.getConnectionInstances());
-        //System.out.println(" Component compInst : " + agreeNode.compInst.getc); 
-        
-        
-       // System.out.println(" Component getContainingComponentImpl : " + agreeNode.compInst.getContainingComponentImpl());
-       // System.out.println(" Component getContainingComponentImpl : " + agreeNode.compInst.getContainingComponentInstance().getAllFeatureInstances());
-        
-        
-        //locals.add(new AgreeVar(guaranteeName, NamedType.BOOL,statement.reference, agreeNode.compInst));
- 
         NodeBuilder builder = new NodeBuilder(nodePrefix + agreeNode.id);
         builder.addInputs(inputs);
         builder.addOutputs(outputs);
         builder.addLocals(locals);
         builder.addEquations(equations);
         //Anitha Added this line to set set of support
-        builder.addSupport(setofsupport);
+        builder.addSupports(setofsupport);
         
      //   System.out.println(" Lustre Program: \n"+ builder.build().toString());
         

@@ -21,6 +21,10 @@ import jkind.api.results.CompositeAnalysisResult;
 import jkind.api.results.JKindResult;
 import jkind.api.results.JRealizabilityResult;
 import jkind.api.results.PropertyResult;
+import jkind.api.results.Renaming;
+import jkind.lustre.Equation;
+import jkind.lustre.Expr;
+import jkind.lustre.NamedType;
 import jkind.lustre.Node;
 import jkind.lustre.Program;
 import jkind.lustre.VarDecl;
@@ -50,6 +54,7 @@ import org.osate.aadl2.instance.SystemInstance;
 import org.osate.aadl2.instantiation.InstantiateModel;
 import org.osate.annexsupport.AnnexUtil;
 import org.osate.ui.dialogs.Dialog;
+
 import com.rockwellcollins.atc.agree.agree.AgreeContractSubclause;
 import com.rockwellcollins.atc.agree.agree.AgreePackage;
 import com.rockwellcollins.atc.agree.agree.AgreeSubclause;
@@ -137,6 +142,8 @@ public abstract class VerifyHandler extends AadlHandler {
                 throw new AgreeException(
                         "There is not an AGREE annex in the '" + sysType.getName() + "' system type.");
             }
+            
+            Program lustreProgram = null;
 
             if (isRecursive()) {
                 if(AgreeUtils.usingKind2()){
@@ -152,19 +159,23 @@ public abstract class VerifyHandler extends AadlHandler {
                         createVerification("Realizability Check", si, program, agreeProgram, AnalysisType.Realizability));
                 result = wrapper;
             } else {
-                wrapVerificationResult(si, wrapper);
+            	 lustreProgram = wrapVerificationResult(si, wrapper);
                 result = wrapper;
             }
             showView(result, linker);
+            //System.out.println(" before do analysis");
             
-            return doAnalysis(root, monitor);
+            //Anitha: I changed the method definition to get renamings
+            return(doAnalysis(root, monitor, si));
+            
+                        
         } catch (Throwable e) {
             String messages = getNestedMessages(e);
             return new Status(IStatus.ERROR, Activator.PLUGIN_ID, 0, messages, e);
         }
     }
 
-    private void wrapVerificationResult(ComponentInstance si, CompositeAnalysisResult wrapper) {
+    private Program wrapVerificationResult(ComponentInstance si, CompositeAnalysisResult wrapper) {
     	
     	//System.out.println(" -- wrapVerificationResult -- ");
         AgreeProgram agreeProgram = new AgreeASTBuilder().getAgreeProgram(si);
@@ -197,6 +208,7 @@ public abstract class VerifyHandler extends AadlHandler {
             wrapper.addChild(createVerification(consistencyAnalysis.getFirst(), si,
                     consistencyAnalysis.getSecond(), agreeProgram, AnalysisType.Consistency));
         }
+        return program;
     }
 
     protected String getNestedMessages(Throwable e) {
@@ -220,12 +232,7 @@ public abstract class VerifyHandler extends AadlHandler {
 
         if (containsAGREEAnnex(ci)) {
             wrapVerificationResult(ci, result);
-            //System.out.println(" -- AFTER wrapVerificationResult -- ");
-            
             ComponentImplementation compImpl = AgreeUtils.getInstanceImplementation(ci);
-            
-            //System.out.println(" -- compImpl -- " + compImpl.getName());
-            
             for (ComponentInstance subInst : ci.getComponentInstances()) {
                 if (AgreeUtils.getInstanceImplementation(subInst) != null) {
                     AnalysisResult buildAnalysisResult = buildAnalysisResult(subInst.getName(), subInst);
@@ -237,9 +244,7 @@ public abstract class VerifyHandler extends AadlHandler {
 
             if (result.getChildren().size() != 0) {
             	linker.setComponent(result, compImpl);
-            	//System.out.println(" -- result -- " + result.toString());
-            	//System.out.println(" -- compImpl -- " + compImpl.getFullName());
-                return result;
+            	return result;
             }
         }
         return null;
@@ -270,10 +275,11 @@ public abstract class VerifyHandler extends AadlHandler {
         AgreeRenaming renaming = new AgreeRenaming(refMap);
         
         AgreeLayout layout = new AgreeLayout();
-        Node mainNode = null;
+               
         
+        Node mainNode = null;
         List<String> properties = new ArrayList<>();
-       // System.out.println("iN fOR LOOP" + lustreProgram.nodes.size());
+        
         for (Node node : lustreProgram.nodes) {
         	 if (node.id.equals(lustreProgram.main)) {
                 mainNode = node;
@@ -284,7 +290,7 @@ public abstract class VerifyHandler extends AadlHandler {
               //  break;
             } else {            	
             	if (resultName.equals("Contract Guarantees")) {
-            		System.out.println("node.id "+ node.id);
+            		//System.out.println("node.id "+ node.id);
             	    mainNode = node;
             	    if (mainNode != null) 
                     	addRenamings(refMap, renaming, properties, layout, mainNode, agreeProgram);
@@ -341,31 +347,34 @@ public abstract class VerifyHandler extends AadlHandler {
     	//System.out.println(" in addRenamings  ");
     	//System.out.println("node.id : " + mainNode.id);
     	//System.out.println("\n\n GOING TO ADD INPUTS");
+    	
+    	for (AgreeNode subNode : agreeProgram.agreeNodes) { 
+		  		ComponentClassifier compClass = subNode.compInst.getComponentClassifier();
+		  		AgreeVar nodeIdVar= new AgreeVar(subNode.id, NamedType.BOOL,null, subNode.compInst);
+		  		String componentName = (compClass.getQualifiedName()).substring(0,(compClass.getQualifiedName()).indexOf(':'));
+		  		addNodeIdReference(refMap, renaming, layout, nodeIdVar,componentName);		  		
+    	}
+    	    	
         for (VarDecl var : mainNode.inputs) {
             if (var instanceof AgreeVar) {
-                addReference(refMap, renaming, layout, var);
+            	//System.out.println(" inputs var id " +var.id);
+            	addReference(refMap, renaming, layout, var);
             }
         }
        // System.out.println("GOING TO ADD LOCALS");
         for (VarDecl var : mainNode.locals) {
             if (var instanceof AgreeVar) {
-            	//if (var instanceof AgreeVar) {
-               // 	addReference(refMap, renaming, layout, var);
-               // }
+            	//System.out.println(" locals var id " +var.id);    
+            	//System.out.println(" locals layout" +layout);
                 addReference(refMap, renaming, layout, var);
             }
         }
-       // System.out.println("GOING TO ADD OUTPUTS");
         for (VarDecl var : mainNode.outputs) {
             if (var instanceof AgreeVar) {
-            	//if (var instanceof AgreeVar) {                	
-              //      addReference(refMap, renaming, layout, var);
-              //  }
+            	//System.out.println(" outputs var id " +var.id);
                 addReference(refMap, renaming, layout, var);
             }
         }
-      //  System.out.println("After adding outputs");
-        //ANITHA: I NEED TO ADD RENAMINGS FOR CHILD PROPERTIES AND EQUATIONS AS WELL. 
         
         //there is a special case in the AgreeRenaming which handles this translation
         if(AgreeUtils.usingKind2()){
@@ -373,8 +382,7 @@ public abstract class VerifyHandler extends AadlHandler {
         }else{
             properties.addAll(mainNode.properties);
         }
-      //  System.out.println("After adding properties \n \n");
-        
+      //  System.out.println("After adding properties \n \n");        
     }
     
     void addKind2Properties(AgreeNode agreeNode, List<String> properties, AgreeRenaming renaming, String prefix, String userPropPrefix){
@@ -398,13 +406,12 @@ public abstract class VerifyHandler extends AadlHandler {
 
     private void addReference(Map<String, EObject> refMap, AgreeRenaming renaming, AgreeLayout layout,
             VarDecl var) {
-    	//System.out.println("addReference method");
+    	   	
     	String refStr = getReferenceStr((AgreeVar) var);
-    	//System.out.println("refStr : "+ refStr);
-    	//System.out.println("var.id : "+ var.id);
-        // TODO verify which reference should be put here
+    	// TODO verify which reference should be put here
         refMap.put(refStr, ((AgreeVar) var).reference);
         refMap.put(var.id, ((AgreeVar) var).reference);
+        //System.out.println("refStr : " + refStr + "  var.id  "+var.id);
         // TODO we could clean up the agree renaming as well
         renaming.addExplicitRename(var.id, refStr);
         String category = getCategory((AgreeVar) var);
@@ -412,8 +419,24 @@ public abstract class VerifyHandler extends AadlHandler {
             layout.addCategory(category);
         }
         layout.addElement(category, refStr, SigType.INPUT);
+        
     }
-
+    
+    private void addNodeIdReference(Map<String, EObject> refMap, AgreeRenaming renaming, AgreeLayout layout,
+            VarDecl var, String refStr) {
+       	//System.out.println("refStr : "+ refStr + "    var.id : "+ var.id);
+        refMap.put(refStr, ((AgreeVar) var).reference);
+        refMap.put(var.id, ((AgreeVar) var).reference);
+        renaming.addExplicitRename(var.id, refStr);
+        String category = getCategory((AgreeVar) var);
+        if (category != null && !layout.getCategories().contains(category)) {
+            layout.addCategory(category);
+        }
+        layout.addElement(category, refStr, SigType.INPUT);
+        return;
+    }
+    
+  
     private String getCategory(AgreeVar var) {
         if (var.compInst == null || var.reference == null) {
             return null;
@@ -431,7 +454,8 @@ public abstract class VerifyHandler extends AadlHandler {
             return null;
         }
         
-      //  System.out.println("in getReferenceStr type:" + var.reference.getClass() );
+        //System.out.println("in getReferenceStr type:" + var.id);
+        //System.out.println("in getReferenceStr type:" + var.reference);
 
         String seperator = (prefix == "" ? "" : ".");
         EObject reference = var.reference;
@@ -445,8 +469,8 @@ public abstract class VerifyHandler extends AadlHandler {
             throw new AgreeException("We really didn't expect to see an assert statement here");
         } else if (reference instanceof Arg) {
             return prefix + seperator + ((Arg) reference).getName();
-        } else if (reference instanceof DataPort) {
-            return prefix + seperator + ((DataPort) reference).getName();
+        } else if (reference instanceof DataPort) {        	
+        	return prefix + seperator + ((DataPort) reference).getName();
         } else if (reference instanceof EventDataPort) {
             return prefix + seperator + ((EventDataPort) reference).getName();
         } else if (reference instanceof FeatureGroup) {
@@ -475,7 +499,7 @@ public abstract class VerifyHandler extends AadlHandler {
 		 * otherwise we can get a deadlock condition if the UI tries to lock the document,
 		 * e.g., to pull up hover information.
 		 */
-    	//System.out.println("*********** in showView ***********");
+    	////System.out.println("*********** in showView ***********");
         getWindow().getShell().getDisplay().asyncExec(new Runnable() {
             @Override
             public void run() {
@@ -506,9 +530,9 @@ public abstract class VerifyHandler extends AadlHandler {
         });
     }
 
-    private IStatus doAnalysis(final Element root, final IProgressMonitor globalMonitor) {
+    private IStatus doAnalysis(final Element root, final IProgressMonitor globalMonitor, SystemInstance si) { 
 
-    	 //System.out.println("in doAnalysis");
+    	 ////System.out.println("in doAnalysis");
     	 
         Thread analysisThread = new Thread() {
             public void run() {
@@ -523,58 +547,68 @@ public abstract class VerifyHandler extends AadlHandler {
                 JRealizabilityApi realApi = PreferencesUtil.getJRealizabilityApi();
                 while (!queue.isEmpty() && !globalMonitor.isCanceled()) {
                     JKindResult result = queue.peek();
-                    
-                    //System.out.println("\n In doAnalysis : " + result.getText());      
-                    //System.out.println(" result getParent: " + result.getParent().toString());                            
-                    //System.out.println(" result getPropertyResults: " + result.getPropertyResults());   
-                    //System.out.println(" result getMultiStatus: " + result.getMultiStatus().toString());
-            
-                    //System.out.println("\n\n IN loop in Run In verify Handler: results " + result.toString());
-                    
                     NullProgressMonitor subMonitor = new NullProgressMonitor();
                     monitorRef.set(subMonitor);
                     Program program = linker.getProgram(result);
-                    
-                  //  //System.out.println(" In verify Handler: program \n " + program.toString());
-                    
                     try {
                         if (result instanceof ConsistencyResult) {
-                        	
-                        	//System.out.println(" BEFORE CALLING FOR CONSISTENCY CHECKING ");
                         	consistApi.execute(program, result, subMonitor);
-                            
-                            //System.out.println(" BEFORE CALLING  CONSISTENCY CHECKING ");
-                            
-                            //System.out.println(" JKIND result IN AGREE : " + result.getText());                            
                         } else if (result instanceof JRealizabilityResult) {
                             realApi.execute(program, (JRealizabilityResult) result, subMonitor);
                         } else {
-                        	//System.out.println(">>>   >>>>> before api CALL FOR PROP VERIFICATION ");
-                        	//Anitha : Iam setting it here for now.. but need to bring as parameter.
-                        	api.setSupport();
-                        	api.execute(program, result, subMonitor);
-                            
-                        	//System.out.println("**************************************\n after CALL FOR PROP VERIFICATION ");
-                            //System.out.println(" JKIND result IN AGREE : " + result.getText());                           
-                            //System.out.println(" result getParent: " + result.getParent().toString());                            
-                            //System.out.println(" result getPropertyResults: " + result.getPropertyResults());   
-                            
-                           // Anitha: This is where I get the results back
-                            for (PropertyResult propResult : result.getPropertyResults() ) {
-                            	if (propResult.getStatus().equals(jkind.api.results.Status.VALID) ){
-                            		//System.out.println(" propResult Property Name " + propResult.getName());
-                            		ValidProperty vp = (ValidProperty)propResult.getProperty();
-                            		//System.out.println(" vp get name e " + vp.getName());
-                            		System.out.println(" THIS IS ONLY PRINT CODE Support List " + vp.getSupport());
-                            		//System.out.println(" getSource " + vp.getSource());
-                            	}
-                            }
-                            
-                            //System.out.println(" result getPropertyResults: " + result.getPropertyResults());   
-                            
-                            //System.out.println(" result getMultiStatus: " + result.getMultiStatus().toString());
-                            
-                            //System.out.println(" subMonitor : " + subMonitor.toString()); 
+                        	api.setReduceSupport();
+                        	api.execute(program, result, subMonitor); 
+
+//                        	AgreeRenaming renaming = (AgreeRenaming) result.getRenaming();
+//                        	System.out.println("********-------*************\n after CALL FOR PROP VERIFICATION ");
+//                            // Anitha: THIS IS WHERE I AM GOING TO GET RENAMINGS FOR SUPPORT
+//                        	//------- ANITHA added this to get reference for support string -----------//                     		
+//                            AgreeProgram agreeProgram = new AgreeASTBuilder().getAgreeProgram(si);
+//                        	List<String> renamedSupport = new ArrayList<String>();	
+//                        	String renamedSupportString = "";
+//                     		for (PropertyResult propResult : result.getPropertyResults()) {
+//                            	if (propResult.getStatus().equals(jkind.api.results.Status.VALID) ){
+//                            		ValidProperty vp = (ValidProperty)propResult.getProperty();
+//                            		for (String supportString : vp.getSupport()) {
+//                            		
+//                            			System.out.println(" Original supportString " + supportString);
+//                            			
+//                            			//the reference to the component names can be obtained from the component instance
+//                            			// that is there in AGREE program. 
+//                            			String componentName =  supportString.substring(0,supportString.indexOf('.'));
+//                            			componentName =  componentName.replace("_TOP__", "");
+//                            			System.out.println(" Renamed Component String" + renaming.rename(componentName));
+//                            			
+//                            			for (AgreeNode subNode : agreeProgram.agreeNodes) { 
+//                                 		  	ComponentClassifier compClass = subNode.compInst.getComponentClassifier();
+//         		                            if(componentName.equals(subNode.id)) {
+//         		                            	componentName = (compClass.getQualifiedName()).substring(0,(compClass.getQualifiedName()).indexOf(':'));
+//         		                            }        		                           
+//                            			}
+//                            			
+//                            			//the properties are assigned to local variables in Lustreprogram
+//                            			//Hence we need lustre program to get that reference.
+//                            			String guranteeName =  supportString.substring(supportString.indexOf('.')+1,supportString.length());
+//                            			System.out.println(" Renamed guranteeName String" + renaming.rename(guranteeName));
+//                            			
+//                            			for (Node lustreNode : lustreProgram.nodes) {
+//                            				 for (VarDecl var : lustreNode.locals) {
+//                            					    if (var instanceof AgreeVar && (((AgreeVar) var).reference) instanceof GuaranteeStatement) {
+//                            					    	if(var.equals(guranteeName)) {
+//                            					    		guranteeName = ((GuaranteeStatement)((AgreeVar) var).reference).getStr();
+//                            					    	}
+//                            					    } 
+//                            				 }	
+//                            			}
+//                            			
+//                            		    renamedSupportString = componentName+"."+guranteeName+";"; 				
+//                            			//System.out.println(" renamedSupportString " + renamedSupportString);
+//                             			renamedSupport.add(renamedSupportString);
+//                            		}
+//                            		//((ValidProperty)propResult.getProperty()).setSupport(renamedSupport);
+//                            	}
+//                     		}
+
                         }
                     } catch (JKindException e) {
                         System.err.println("******** JKindException Text ********");
