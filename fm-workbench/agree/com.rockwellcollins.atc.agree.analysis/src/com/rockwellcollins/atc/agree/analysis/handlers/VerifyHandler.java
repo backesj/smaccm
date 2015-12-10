@@ -272,26 +272,26 @@ public abstract class VerifyHandler extends AadlHandler {
         
     	//System.out.println("resultName" + resultName);
         Map<String, EObject> refMap = new HashMap<>();
-        AgreeRenaming renaming = new AgreeRenaming(refMap);
-        
-        AgreeLayout layout = new AgreeLayout();
-               
-        
+        AgreeRenaming renaming = new AgreeRenaming(refMap);        
+        AgreeLayout layout = new AgreeLayout();        
         Node mainNode = null;
         List<String> properties = new ArrayList<>();
         
         for (Node node : lustreProgram.nodes) {
+        	
         	 if (node.id.equals(lustreProgram.main)) {
+        		//System.out.println("\n==============in main node=========resultName "+ resultName);
                 mainNode = node;
                 if (mainNode != null)
                 	addRenamings(refMap, renaming, properties, layout, mainNode, agreeProgram);
                  else 
                      throw new AgreeException("Could not find main lustre node after translation");                 
               //  break;
-            } else {            	
+            } else {          
+            	//Anitha added this - so that all variables in subnodes are also added into refence. 
             	if (resultName.equals("Contract Guarantees")) {
-            		//System.out.println("node.id "+ node.id);
-            	    mainNode = node;
+            		//System.out.println("\n==============in not main node=========resultName "+ resultName);
+                    mainNode = node;
             	    if (mainNode != null) 
                     	addRenamings(refMap, renaming, properties, layout, mainNode, agreeProgram);
                      else 
@@ -345,33 +345,34 @@ public abstract class VerifyHandler extends AadlHandler {
             Node mainNode, AgreeProgram agreeProgram) {
     	
     	//System.out.println(" in addRenamings  ");
-    	//System.out.println("node.id : " + mainNode.id);
-    	//System.out.println("\n\n GOING TO ADD INPUTS");
-    	
+    	//System.out.println(" ------- node.id : " + mainNode.id); 
+    
     	for (AgreeNode subNode : agreeProgram.agreeNodes) { 
 		  		ComponentClassifier compClass = subNode.compInst.getComponentClassifier();
 		  		AgreeVar nodeIdVar= new AgreeVar(subNode.id, NamedType.BOOL,null, subNode.compInst);
 		  		String componentName = (compClass.getQualifiedName()).substring(0,(compClass.getQualifiedName()).indexOf(':'));
-		  		addNodeIdReference(refMap, renaming, layout, nodeIdVar,componentName);		  		
-    	}
-    	    	
-        for (VarDecl var : mainNode.inputs) {
+		  		addNodeIdReference(refMap, renaming, layout, nodeIdVar,componentName);
+		}
+    	
+    	for (VarDecl var : mainNode.inputs) {
             if (var instanceof AgreeVar) {
-            	//System.out.println(" inputs var id " +var.id);
+            //	System.out.println(" inputs var id " +var.id);
             	addReference(refMap, renaming, layout, var);
             }
         }
-       // System.out.println("GOING TO ADD LOCALS");
+        
+       // System.out.println("--------------------------------------------");
         for (VarDecl var : mainNode.locals) {
             if (var instanceof AgreeVar) {
-            	//System.out.println(" locals var id " +var.id);    
-            	//System.out.println(" locals layout" +layout);
-                addReference(refMap, renaming, layout, var);
+            	addReference(refMap, renaming, layout, var);      
+            	//Anitha added this for support string renaming <componentname.localvarname>
+            	addReferenceForSupport(mainNode,refMap, renaming, layout, var);
             }
         }
+        
         for (VarDecl var : mainNode.outputs) {
             if (var instanceof AgreeVar) {
-            	//System.out.println(" outputs var id " +var.id);
+            //	System.out.println(" outputs var id " +var.id);
                 addReference(refMap, renaming, layout, var);
             }
         }
@@ -403,6 +404,27 @@ public abstract class VerifyHandler extends AadlHandler {
             addKind2Properties(subNode, properties, renaming, prefix+"."+subNode.id, userPropPrefix + subNode.id);
         }
     }
+    
+    
+  //Anitha: adding these references additionally for support variables.
+    private void addReferenceForSupport(Node node, Map<String, EObject> refMap, AgreeRenaming renaming, AgreeLayout layout,
+            VarDecl var) {
+    	
+    		String nodeId = node.id;	                
+    		nodeId=nodeId.substring(nodeId.indexOf("__")+2,nodeId.length());
+    		if (var.id.contains("_"+nodeId)) {//local variables introduced in 
+	        	String refStr = getReferenceStr((AgreeVar) var);
+	    		//System.out.println(" var.id :"+var.id +" refStr "+refStr);                    
+	    		String currentNodeRename = renaming.rename(nodeId);
+	            String supportStringId = node.id+"."+var.id;
+	        	String supportStringRef = currentNodeRename+"."+refStr;	                
+	        	refMap.put(supportStringId, ((AgreeVar) var).reference);
+	            refMap.put(supportStringRef, ((AgreeVar) var).reference);
+	            renaming.addExplicitRename(supportStringId, supportStringRef);
+	            //System.out.println("supportStringId :"+supportStringId +" supportStringRef "+supportStringRef);	                
+    		}
+    }
+    
 
     private void addReference(Map<String, EObject> refMap, AgreeRenaming renaming, AgreeLayout layout,
             VarDecl var) {
@@ -411,7 +433,7 @@ public abstract class VerifyHandler extends AadlHandler {
     	// TODO verify which reference should be put here
         refMap.put(refStr, ((AgreeVar) var).reference);
         refMap.put(var.id, ((AgreeVar) var).reference);
-        //System.out.println("refStr : " + refStr + "  var.id  "+var.id);
+       // System.out.println("addReference refStr :=" + refStr + "=  var.id  ="+var.id+"=");
         // TODO we could clean up the agree renaming as well
         renaming.addExplicitRename(var.id, refStr);
         String category = getCategory((AgreeVar) var);
@@ -424,7 +446,7 @@ public abstract class VerifyHandler extends AadlHandler {
     
     private void addNodeIdReference(Map<String, EObject> refMap, AgreeRenaming renaming, AgreeLayout layout,
             VarDecl var, String refStr) {
-       	//System.out.println("refStr : "+ refStr + "    var.id : "+ var.id);
+    	//System.out.println("addNodeIdReference refStr :=" + refStr + "=  var.id  ="+var.id+"=");
         refMap.put(refStr, ((AgreeVar) var).reference);
         refMap.put(var.id, ((AgreeVar) var).reference);
         renaming.addExplicitRename(var.id, refStr);
@@ -559,8 +581,7 @@ public abstract class VerifyHandler extends AadlHandler {
                         	api.setReduceSupport();
                         	api.execute(program, result, subMonitor); 
 
-//                        	AgreeRenaming renaming = (AgreeRenaming) result.getRenaming();
-//                        	System.out.println("********-------*************\n after CALL FOR PROP VERIFICATION ");
+                        //	System.out.println("********-------*************\n after CALL FOR PROP VERIFICATION ");
 //                            // Anitha: THIS IS WHERE I AM GOING TO GET RENAMINGS FOR SUPPORT
 //                        	//------- ANITHA added this to get reference for support string -----------//                     		
 //                            AgreeProgram agreeProgram = new AgreeASTBuilder().getAgreeProgram(si);
@@ -569,9 +590,12 @@ public abstract class VerifyHandler extends AadlHandler {
 //                     		for (PropertyResult propResult : result.getPropertyResults()) {
 //                            	if (propResult.getStatus().equals(jkind.api.results.Status.VALID) ){
 //                            		ValidProperty vp = (ValidProperty)propResult.getProperty();
+//                            		System.out.println("Support for Property :" + vp.getName());
 //                            		for (String supportString : vp.getSupport()) {
-//                            		
-//                            			System.out.println(" Original supportString " + supportString);
+//                            			System.out.println("\t " + supportString);
+//                            		}
+//                            	}
+//                     		}
 //                            			
 //                            			//the reference to the component names can be obtained from the component instance
 //                            			// that is there in AGREE program. 

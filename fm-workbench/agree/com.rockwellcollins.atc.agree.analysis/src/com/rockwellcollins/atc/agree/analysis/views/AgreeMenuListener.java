@@ -241,12 +241,13 @@ public class AgreeMenuListener implements IMenuListener {
 			                    	    if (!((PropertyResult) result).getParent().getName().contains("consistent")) {
 			                    			 ValidProperty vp = (ValidProperty)(((PropertyResult) result).getProperty());
 			                    			 printHLine(out, 2);
-			            	        		 out.println("Set of Support for Gurantee: "+"{"+vp.getName().trim()+"}");
+			            	        		 out.println("Set of Support for Gurantee: "+"{"+vp.getName()+"}");
 			                    			 printHLine(out, 2);
 			                    			 printHLine(out, 2);
 			                    			 out.println(String.format("%-25s%-25s","Component name","Property name"));
 			            	        		 printHLine(out, 2);
 			            	        		 for (String supportString : vp.getSupport()) {  
+			            	        			// System.out.println("in supportString :  " + supportString);
 			            	        			String componentName =  supportString.substring(0,supportString.indexOf('.'));        			
 			            	        			String guranteeName =  supportString.substring(supportString.indexOf('.')+1,supportString.length());
 			            	        			//System.out.println("in View guranteeName :  " + guranteeName);
@@ -368,6 +369,7 @@ public class AgreeMenuListener implements IMenuListener {
             PropertyResult pr = (PropertyResult) result;
             Map<String, EObject> refMap = linker.getReferenceMap(pr.getParent());
             EObject property = refMap.get(pr.getName());
+            System.out.println("pr.getName() ="+pr.getName()+"=");
             if (property instanceof GuaranteeStatement) {
                 manager.add(createHyperlinkAction("Go To Guarantee", property));
             }
