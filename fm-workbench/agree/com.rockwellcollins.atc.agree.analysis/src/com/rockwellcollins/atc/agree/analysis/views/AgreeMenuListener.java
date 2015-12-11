@@ -90,128 +90,24 @@ public class AgreeMenuListener implements IMenuListener {
     }
 
     private void addLinkedMenus(IMenuManager manager, AnalysisResult result) {
-        //System.out.println("addLinkedMenus ");
-    	addOpenComponentMenu(manager, result);
+        addOpenComponentMenu(manager, result);
         addOpenContractMenu(manager, result);
         addViewLogMenu(manager, result);
         addViewCounterexampleMenu(manager, result);
         addViewLustreMenu(manager, result);
         addResultsLinkingMenu(manager, result);
-       // addViewValidMenu(manager, result);
-       // addViewSupportMenu(manager, result);
-        addViewSupportMenu2(manager, result);
+        //Anitha added this method to get "View Set of Support" Option in AGREE results window.
+        addViewSupportMenu(manager, result);
     }
     
-    //Anitha added this method to get "View Set of Support" Option in AGREE results window.
-    private void addViewValidMenu(IMenuManager manager, AnalysisResult result) {
-    	//System.out.println("add View Valid Menu " + result.getClass());    	
-    	if (!(result instanceof ConsistencyResult || result instanceof JRealizabilityResult)) {
-    	  if (result instanceof PropertyResult) {
-    		 if (((PropertyResult) result).getStatus().equals(jkind.api.results.Status.VALID) ){ 
-        	    if (!((PropertyResult) result).getParent().getName().contains("consistent")) {
-        			 ValidProperty vp = (ValidProperty)(((PropertyResult) result).getProperty());
-	        		 StringBuffer supportDisplay  = new StringBuffer();
-	        		 supportDisplay.append("SET OF SUPPORT"+" for Gurantee: "+vp.getName()+"\n");
-	        		 supportDisplay.append("==============================================="+"\n");
-	        		 supportDisplay.append("Component name\t|\tProperty name\n");
-	        		 supportDisplay.append("-----------------------------------------------\n");        		 
-	        		 for (String supportString : vp.getSupport()) {  
-	        			String componentName =  supportString.substring(0,supportString.indexOf('.'));        			
-	        			String guranteeName =  supportString.substring(supportString.indexOf('.')+1,supportString.length());
-	        			supportDisplay.append(componentName +"\t|\t" + guranteeName+"\n");        			
-	        		 }
-	        		 supportDisplay.append("------------------------------------------------\n");
-	        		 //System.out.println("supportDisplay\n" + supportDisplay);
-	        		 manager.add(createWriteConsoleAction("View Set of Support", "Support", supportDisplay)); 
-	        	 }
-        	  }
-    		}
-         }
-    }
     //Anitha added this method to get "View Set of Support" Option in AGREE results window.
     private void addViewSupportMenu(IMenuManager manager, AnalysisResult result) {
-    	if (!(result instanceof ConsistencyResult || result instanceof JRealizabilityResult)) {
-      	  if (result instanceof PropertyResult) {   	
-      		 if (((PropertyResult) result).getStatus().equals(jkind.api.results.Status.VALID) ){ 
-         	    if (!((PropertyResult) result).getParent().getName().contains("consistent")) {
-			        Map<String, EObject> tempRefMap = linker.getReferenceMap(result.getParent());
-			        if (tempRefMap == null) {
-			            tempRefMap = linker.getReferenceMap(result);
-			        }
-			        final Map<String, EObject> refMap = tempRefMap;
-		
-		            MenuManager sub = new MenuManager("View Support in");
-		            manager.add(sub);
-		
-		            sub.add(new Action("Agree Console") {
-		                @Override
-		                public void run() {
-		                    viewSupportWindow(result, refMap);
-		                }
-		            });
-         	    }
-      		 }
-      	  }
-    	}                  
-    }
-    //Anitha added this method to get "View Set of Support" Option in AGREE results window.
-    private void viewSupportWindow(AnalysisResult result, Map<String, EObject> refMap) {
-    	final MessageConsole console = findConsole("View Set of Support");
-        showConsole(console);
-        console.clearConsole();
-        console.addPatternMatchListener(new AgreePatternListener(refMap));
-        /*
-         * From the Eclipse API: "Clients should avoid writing large amounts of
-         * output to this stream in the UI thread. The console needs to process
-         * the output in the UI thread and if the client hogs the UI thread
-         * writing output to the console, the console will not be able to
-         * process the output."
-         */
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try (MessageConsoleStream out = console.newMessageStream()) {
-                	if (!(result instanceof ConsistencyResult || result instanceof JRealizabilityResult)) {
-                	if (result instanceof PropertyResult) {
-                		 if (((PropertyResult) result).getStatus().equals(jkind.api.results.Status.VALID) ){ 
-                    	    if (!((PropertyResult) result).getParent().getName().contains("consistent")) {
-                    			 ValidProperty vp = (ValidProperty)(((PropertyResult) result).getProperty());
-                    			 printHLine(out, 2);
-            	        		 out.println("Set of Support for Gurantee: "+"{"+vp.getName().trim()+"}");
-                    			 printHLine(out, 2);
-                    			 printHLine(out, 2); 
-                    			 out.println("Component name\t|\tProperty name");
-            	        		 printHLine(out, 2);
-            	        		 for (String supportString : vp.getSupport()) {  
-            	        			String componentName =  supportString.substring(0,supportString.indexOf('.'));        			
-            	        			String guranteeName =  supportString.substring(supportString.indexOf('.')+1,supportString.length());
-            	        			System.out.println("in View guranteeName :  " + guranteeName);
-            	        			//guranteeName =  guranteeName.substring(guranteeName.indexOf('.')+1,guranteeName.length());
-            	        			//System.out.println("in View guranteeName :  " + guranteeName);
-            	        			out.println(componentName + "\t|\t" +"{"+guranteeName+"}");        			
-            	        		 }
-            	        		 printHLine(out, 2);                	        		  
-            	        	 }
-                    	 }
-                		}
-                     }                    	
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }).start();
-    }
-    
-    
-    
-    
-    //Anitha added this method to get "View Set of Support" Option in AGREE results window.
-    private void addViewSupportMenu2(IMenuManager manager, AnalysisResult result) {
+    	System.out.println(" Iam in addViewSupportMenu ");
     	if (!(result instanceof ConsistencyResult || result instanceof JRealizabilityResult)) {
         	if (result instanceof PropertyResult) {
         		 if (((PropertyResult) result).getStatus().equals(jkind.api.results.Status.VALID) ){ 
         			 if (!((PropertyResult) result).getParent().getName().contains("consistent")) {
-        			 	manager.add(addViewSupportWindow("Set of Support", manager, result));
+        			 	manager.add(addViewSupportConsole("Set of Support", manager, result));
         			 }
         		 }
         	}
@@ -219,15 +115,22 @@ public class AgreeMenuListener implements IMenuListener {
     }
     
     //Anitha added this method to get "View Set of Support" Option in AGREE results window.
-    private IAction addViewSupportWindow(String text, IMenuManager manager, AnalysisResult result) {
+    private IAction addViewSupportConsole(String text, IMenuManager manager, AnalysisResult result) {
         return new Action(text) {
         	public void run() { 
+        		System.out.println(" Iam in addViewSupportConsole ");
         		Map<String, EObject> tempRefMap = linker.getReferenceMap(result.getParent());
 		        if (tempRefMap == null) {
 		            tempRefMap = linker.getReferenceMap(result);
 		        }
 		        final Map<String, EObject> refMap = tempRefMap;
-        		final MessageConsole console = findConsole("Set of Support");
+		        //Anitha: for some reason I am always getting the lustre  console
+		        final MessageConsole console1 = findConsole("Lustre");
+		        console1.clearConsole();
+		        console1.destroy();
+        		
+		        
+        		final MessageConsole console = findConsole("Support");
 				showConsole(console);
         		console.clearConsole();
         		console.addPatternMatchListener(new AgreePatternListener(refMap));
@@ -247,14 +150,9 @@ public class AgreeMenuListener implements IMenuListener {
 			                    			 out.println(String.format("%-25s%-25s","Component name","Property name"));
 			            	        		 printHLine(out, 2);
 			            	        		 for (String supportString : vp.getSupport()) {  
-			            	        			// System.out.println("in supportString :  " + supportString);
 			            	        			String componentName =  supportString.substring(0,supportString.indexOf('.'));        			
 			            	        			String guranteeName =  supportString.substring(supportString.indexOf('.')+1,supportString.length());
-			            	        			//System.out.println("in View guranteeName :  " + guranteeName);
-			            	        			//guranteeName =  guranteeName.substring(guranteeName.indexOf('.')+1,guranteeName.length());
-			            	        			//System.out.println("in View guranteeName :  " + guranteeName);
 			            	        			out.println(String.format("%-25s%-25s",componentName ,"{"+guranteeName+"}"));        			
-			            	        			
 			            	        		 }
 			            	        		 printHLine(out, 2);                	        		  
 			            	        	 }
@@ -355,6 +253,7 @@ public class AgreeMenuListener implements IMenuListener {
     }
 
     private void addViewLustreMenu(IMenuManager manager, AnalysisResult result) {
+    	System.out.println(" I am in addViewLustreMenu  ");
         Program program = linker.getProgram(result);
         if (program == null && result instanceof PropertyResult) {
             program = linker.getProgram(result.getParent());
@@ -417,11 +316,6 @@ public class AgreeMenuListener implements IMenuListener {
     }
 
     private IAction createHyperlinkAction(String text, final EObject eObject) {
-    //	System.out.println("In createHyperlinkAction");
-    //	System.out.println(" eObject  : "+ eObject.toString());
-    //	System.out.println(" EcoreUtil.getURI(eObject)  : "+ EcoreUtil.getURI(eObject));
-    //	System.out.println("EcoreUtil.getURI(eObject) " + globalURIEditorOpener);
-    //	System.out.println("EcoreUtil.getURI(eObject) " + globalURIEditorOpener.toString());
     	return new Action(text) {
             @Override
             public void run() {
@@ -435,11 +329,10 @@ public class AgreeMenuListener implements IMenuListener {
         return new Action(actionName) {
             @Override
             public void run() {
-         
+            	System.out.println(" I am in createWriteConsoleAction  ");
             	final MessageConsole console = findConsole(consoleName);
                 showConsole(console);
                 console.clearConsole();
-               // System.out.println("content on console: " + content);
                 /*
                  * From the Eclipse API: "Clients should avoid writing large
                  * amounts of output to this stream in the UI thread. The

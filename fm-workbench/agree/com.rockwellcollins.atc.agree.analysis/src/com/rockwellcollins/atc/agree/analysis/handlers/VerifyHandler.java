@@ -109,8 +109,7 @@ public abstract class VerifyHandler extends AadlHandler {
     @Override
     protected IStatus runJob(Element root, IProgressMonitor monitor) {
     	
-    	////System.out.println("----------- In run job----------------");
-        disableRerunHandler();
+    	disableRerunHandler();
         handlerService = (IHandlerService) getWindow().getService(IHandlerService.class);
 
         if (!(root instanceof ComponentImplementation)) {
@@ -133,7 +132,6 @@ public abstract class VerifyHandler extends AadlHandler {
             AnalysisResult result;
             CompositeAnalysisResult wrapper = new CompositeAnalysisResult("");
 
-            // SystemType sysType = si.getSystemImplementation().getType();
             ComponentType sysType = AgreeUtils.getInstanceType(si);
             EList<AnnexSubclause> annexSubClauses = AnnexUtil.getAllAnnexSubclauses(sysType,
                     AgreePackage.eINSTANCE.getAgreeContractSubclause());
@@ -163,10 +161,7 @@ public abstract class VerifyHandler extends AadlHandler {
                 result = wrapper;
             }
             showView(result, linker);
-            //System.out.println(" before do analysis");
-            
-            //Anitha: I changed the method definition to get renamings
-            return(doAnalysis(root, monitor, si));
+            return(doAnalysis(root, monitor));
             
                         
         } catch (Throwable e) {
@@ -177,8 +172,7 @@ public abstract class VerifyHandler extends AadlHandler {
 
     private Program wrapVerificationResult(ComponentInstance si, CompositeAnalysisResult wrapper) {
     	
-    	//System.out.println(" -- wrapVerificationResult -- ");
-        AgreeProgram agreeProgram = new AgreeASTBuilder().getAgreeProgram(si);
+    	AgreeProgram agreeProgram = new AgreeASTBuilder().getAgreeProgram(si);
  
         // generate different lustre depending on which model checker we are
         // using
@@ -192,18 +186,13 @@ public abstract class VerifyHandler extends AadlHandler {
         } else {
         	
             program = LustreAstBuilder.getAssumeGuaranteeLustreProgram(agreeProgram, isMonolithic());
-           // //System.out.println(" -- program AFTER ASSUMEGURATNEELUSTRE CALL IN WRAP VERIFICATION RESULT --" );//+ program.toString());
         }
         List<Pair<String, Program>> consistencies =
                 LustreAstBuilder.getConsistencyChecks(agreeProgram, isMonolithic());
 
-        //First verification for contract gurantees
         wrapper.addChild(
                 createVerification("Contract Guarantees", si, program, agreeProgram, AnalysisType.AssumeGuarantee));
         
-        //System.out.println("wrapper:" + wrapper.toString());
-        
-        //Subseqeuently one verification for each consistency checking
         for (Pair<String, Program> consistencyAnalysis : consistencies) {
             wrapper.addChild(createVerification(consistencyAnalysis.getFirst(), si,
                     consistencyAnalysis.getSecond(), agreeProgram, AnalysisType.Consistency));
@@ -225,8 +214,6 @@ public abstract class VerifyHandler extends AadlHandler {
     }
 
     private AnalysisResult buildAnalysisResult(String name, ComponentInstance ci) {
-    	
-    	//System.out.println(" -- buildAnalysisResult -- ");
     	
         CompositeAnalysisResult result = new CompositeAnalysisResult("Verification for " + name);
 
@@ -267,11 +254,8 @@ public abstract class VerifyHandler extends AadlHandler {
     //This method creates a queue of verification tasks.  
     private AnalysisResult createVerification(String resultName, ComponentInstance compInst, Program lustreProgram, AgreeProgram agreeProgram,
             AnalysisType analysisType) {
-    	//System.out.println("----------- createVerification----- : " + resultName);
-    	////System.out.println("this is the method where JKindResult is set up before goint to jKIND");
-        
-    	//System.out.println("resultName" + resultName);
-        Map<String, EObject> refMap = new HashMap<>();
+    	
+    	Map<String, EObject> refMap = new HashMap<>();
         AgreeRenaming renaming = new AgreeRenaming(refMap);        
         AgreeLayout layout = new AgreeLayout();        
         Node mainNode = null;
@@ -280,18 +264,17 @@ public abstract class VerifyHandler extends AadlHandler {
         for (Node node : lustreProgram.nodes) {
         	
         	 if (node.id.equals(lustreProgram.main)) {
-        		//System.out.println("\n==============in main node=========resultName "+ resultName);
-                mainNode = node;
+        		mainNode = node;
                 if (mainNode != null)
                 	addRenamings(refMap, renaming, properties, layout, mainNode, agreeProgram);
                  else 
                      throw new AgreeException("Could not find main lustre node after translation");                 
-              //  break;
+              // Anitha: removed the break; statmenet, since we want to add renaming for all child nodes as well 
+                //this is done for support.
             } else {          
             	//Anitha added this - so that all variables in subnodes are also added into refence. 
             	if (resultName.equals("Contract Guarantees")) {
-            		//System.out.println("\n==============in not main node=========resultName "+ resultName);
-                    mainNode = node;
+            		mainNode = node;
             	    if (mainNode != null) 
                     	addRenamings(refMap, renaming, properties, layout, mainNode, agreeProgram);
                      else 
@@ -299,7 +282,7 @@ public abstract class VerifyHandler extends AadlHandler {
                }
             }
     	 }
-        
+       //Anitha: this code was merged with the changes above. 
        // if (mainNode == null) {
        //     throw new AgreeException("Could not find main lustre node after translation");
        // }
@@ -323,9 +306,6 @@ public abstract class VerifyHandler extends AadlHandler {
             throw new AgreeException("Unhandled Analysis Type");
         }
         
-        //System.out.println("Queue result Name: " + result.getName());
-        //System.out.println("Queue result Text: " + result.getText());
-        
         queue.add(result);
 
         ComponentImplementation compImpl = AgreeUtils.getInstanceImplementation(compInst);
@@ -336,7 +316,6 @@ public abstract class VerifyHandler extends AadlHandler {
         linker.setReferenceMap(result, refMap);
         linker.setLog(result, AgreeLogger.getLog());
 
-        // System.out.println(program);
         return result;
 
     }
@@ -344,9 +323,7 @@ public abstract class VerifyHandler extends AadlHandler {
     private void addRenamings(Map<String, EObject> refMap, AgreeRenaming renaming, List<String> properties, AgreeLayout layout,
             Node mainNode, AgreeProgram agreeProgram) {
     	
-    	//System.out.println(" in addRenamings  ");
-    	//System.out.println(" ------- node.id : " + mainNode.id); 
-    
+   
     	for (AgreeNode subNode : agreeProgram.agreeNodes) { 
 		  		ComponentClassifier compClass = subNode.compInst.getComponentClassifier();
 		  		AgreeVar nodeIdVar= new AgreeVar(subNode.id, NamedType.BOOL,null, subNode.compInst);
@@ -356,12 +333,10 @@ public abstract class VerifyHandler extends AadlHandler {
     	
     	for (VarDecl var : mainNode.inputs) {
             if (var instanceof AgreeVar) {
-            //	System.out.println(" inputs var id " +var.id);
             	addReference(refMap, renaming, layout, var);
             }
         }
         
-       // System.out.println("--------------------------------------------");
         for (VarDecl var : mainNode.locals) {
             if (var instanceof AgreeVar) {
             	addReference(refMap, renaming, layout, var);      
@@ -372,7 +347,6 @@ public abstract class VerifyHandler extends AadlHandler {
         
         for (VarDecl var : mainNode.outputs) {
             if (var instanceof AgreeVar) {
-            //	System.out.println(" outputs var id " +var.id);
                 addReference(refMap, renaming, layout, var);
             }
         }
@@ -383,7 +357,6 @@ public abstract class VerifyHandler extends AadlHandler {
         }else{
             properties.addAll(mainNode.properties);
         }
-      //  System.out.println("After adding properties \n \n");        
     }
     
     void addKind2Properties(AgreeNode agreeNode, List<String> properties, AgreeRenaming renaming, String prefix, String userPropPrefix){
@@ -412,16 +385,14 @@ public abstract class VerifyHandler extends AadlHandler {
     	
     		String nodeId = node.id;	                
     		nodeId=nodeId.substring(nodeId.indexOf("__")+2,nodeId.length());
-    		if (var.id.contains("_"+nodeId)) {//local variables introduced in 
+    		if (var.id.contains("_"+nodeId)) {
 	        	String refStr = getReferenceStr((AgreeVar) var);
-	    		//System.out.println(" var.id :"+var.id +" refStr "+refStr);                    
 	    		String currentNodeRename = renaming.rename(nodeId);
 	            String supportStringId = node.id+"."+var.id;
 	        	String supportStringRef = currentNodeRename+"."+refStr;	                
 	        	refMap.put(supportStringId, ((AgreeVar) var).reference);
 	            refMap.put(supportStringRef, ((AgreeVar) var).reference);
 	            renaming.addExplicitRename(supportStringId, supportStringRef);
-	            //System.out.println("supportStringId :"+supportStringId +" supportStringRef "+supportStringRef);	                
     		}
     }
     
@@ -433,7 +404,6 @@ public abstract class VerifyHandler extends AadlHandler {
     	// TODO verify which reference should be put here
         refMap.put(refStr, ((AgreeVar) var).reference);
         refMap.put(var.id, ((AgreeVar) var).reference);
-       // System.out.println("addReference refStr :=" + refStr + "=  var.id  ="+var.id+"=");
         // TODO we could clean up the agree renaming as well
         renaming.addExplicitRename(var.id, refStr);
         String category = getCategory((AgreeVar) var);
@@ -446,8 +416,7 @@ public abstract class VerifyHandler extends AadlHandler {
     
     private void addNodeIdReference(Map<String, EObject> refMap, AgreeRenaming renaming, AgreeLayout layout,
             VarDecl var, String refStr) {
-    	//System.out.println("addNodeIdReference refStr :=" + refStr + "=  var.id  ="+var.id+"=");
-        refMap.put(refStr, ((AgreeVar) var).reference);
+    	refMap.put(refStr, ((AgreeVar) var).reference);
         refMap.put(var.id, ((AgreeVar) var).reference);
         renaming.addExplicitRename(var.id, refStr);
         String category = getCategory((AgreeVar) var);
@@ -475,10 +444,7 @@ public abstract class VerifyHandler extends AadlHandler {
         if (var.id.endsWith(AgreeASTBuilder.clockIDSuffix)) {
             return null;
         }
-        
-        //System.out.println("in getReferenceStr type:" + var.id);
-        //System.out.println("in getReferenceStr type:" + var.reference);
-
+     
         String seperator = (prefix == "" ? "" : ".");
         EObject reference = var.reference;
         if (reference instanceof GuaranteeStatement) {
@@ -521,8 +487,7 @@ public abstract class VerifyHandler extends AadlHandler {
 		 * otherwise we can get a deadlock condition if the UI tries to lock the document,
 		 * e.g., to pull up hover information.
 		 */
-    	////System.out.println("*********** in showView ***********");
-        getWindow().getShell().getDisplay().asyncExec(new Runnable() {
+    	getWindow().getShell().getDisplay().asyncExec(new Runnable() {
             @Override
             public void run() {
             	try {
@@ -552,19 +517,15 @@ public abstract class VerifyHandler extends AadlHandler {
         });
     }
 
-    private IStatus doAnalysis(final Element root, final IProgressMonitor globalMonitor, SystemInstance si) { 
-
-    	 ////System.out.println("in doAnalysis");
+    private IStatus doAnalysis(final Element root, final IProgressMonitor globalMonitor) { 
     	 
         Thread analysisThread = new Thread() {
             public void run() {
                 
             	activateTerminateHandlers(globalMonitor);
-            	//Anitha: The code was calling KindApi. Iam going to change it to call jKindAPI            	
+            	//Anitha: The code was calling KindApi. Iam going to change it to call jKindAPI to allow setting reduce support          	
             	//KindApi api = PreferencesUtil.getKindApi();
             	JKindApi api = (JKindApi) PreferencesUtil.getKindApi(PreferenceConstants.MODEL_CHECKER_JKIND, null);
-            	//System.out.println("\n api type : " + api.getClass());  
-            	  
                 KindApi consistApi = PreferencesUtil.getConsistencyApi();
                 JRealizabilityApi realApi = PreferencesUtil.getJRealizabilityApi();
                 while (!queue.isEmpty() && !globalMonitor.isCanceled()) {
@@ -580,61 +541,9 @@ public abstract class VerifyHandler extends AadlHandler {
                         } else {
                         	api.setReduceSupport();
                         	api.execute(program, result, subMonitor); 
-
-                        //	System.out.println("********-------*************\n after CALL FOR PROP VERIFICATION ");
-//                            // Anitha: THIS IS WHERE I AM GOING TO GET RENAMINGS FOR SUPPORT
-//                        	//------- ANITHA added this to get reference for support string -----------//                     		
-//                            AgreeProgram agreeProgram = new AgreeASTBuilder().getAgreeProgram(si);
-//                        	List<String> renamedSupport = new ArrayList<String>();	
-//                        	String renamedSupportString = "";
-//                     		for (PropertyResult propResult : result.getPropertyResults()) {
-//                            	if (propResult.getStatus().equals(jkind.api.results.Status.VALID) ){
-//                            		ValidProperty vp = (ValidProperty)propResult.getProperty();
-//                            		System.out.println("Support for Property :" + vp.getName());
-//                            		for (String supportString : vp.getSupport()) {
-//                            			System.out.println("\t " + supportString);
-//                            		}
-//                            	}
-//                     		}
-//                            			
-//                            			//the reference to the component names can be obtained from the component instance
-//                            			// that is there in AGREE program. 
-//                            			String componentName =  supportString.substring(0,supportString.indexOf('.'));
-//                            			componentName =  componentName.replace("_TOP__", "");
-//                            			System.out.println(" Renamed Component String" + renaming.rename(componentName));
-//                            			
-//                            			for (AgreeNode subNode : agreeProgram.agreeNodes) { 
-//                                 		  	ComponentClassifier compClass = subNode.compInst.getComponentClassifier();
-//         		                            if(componentName.equals(subNode.id)) {
-//         		                            	componentName = (compClass.getQualifiedName()).substring(0,(compClass.getQualifiedName()).indexOf(':'));
-//         		                            }        		                           
-//                            			}
-//                            			
-//                            			//the properties are assigned to local variables in Lustreprogram
-//                            			//Hence we need lustre program to get that reference.
-//                            			String guranteeName =  supportString.substring(supportString.indexOf('.')+1,supportString.length());
-//                            			System.out.println(" Renamed guranteeName String" + renaming.rename(guranteeName));
-//                            			
-//                            			for (Node lustreNode : lustreProgram.nodes) {
-//                            				 for (VarDecl var : lustreNode.locals) {
-//                            					    if (var instanceof AgreeVar && (((AgreeVar) var).reference) instanceof GuaranteeStatement) {
-//                            					    	if(var.equals(guranteeName)) {
-//                            					    		guranteeName = ((GuaranteeStatement)((AgreeVar) var).reference).getStr();
-//                            					    	}
-//                            					    } 
-//                            				 }	
-//                            			}
-//                            			
-//                            		    renamedSupportString = componentName+"."+guranteeName+";"; 				
-//                            			//System.out.println(" renamedSupportString " + renamedSupportString);
-//                             			renamedSupport.add(renamedSupportString);
-//                            		}
-//                            		//((ValidProperty)propResult.getProperty()).setSupport(renamedSupport);
-//                            	}
-//                     		}
-
                         }
                     } catch (JKindException e) {
+                    	//Anitha: I changed the system.out to system.err
                         System.err.println("******** JKindException Text ********");
                         e.printStackTrace(System.out);
                         System.err.println("******** JKind Output ********");
@@ -649,19 +558,12 @@ public abstract class VerifyHandler extends AadlHandler {
                 while (!queue.isEmpty()) {
                     queue.remove().cancel();
                 }
-                
-                //System.out.println("-------------------------- before deactivateTerminateHandlers");
-
-                deactivateTerminateHandlers();
-                //System.out.println(" before enableRerunHandler");
+               deactivateTerminateHandlers();
                 enableRerunHandler(root);
-                //System.out.println(" after enableRerunHandler");
                 
             }
         };
-        //System.out.println(" before analysisThread");
         analysisThread.start();
-        //System.out.println(" after analysisThread");
         return Status.OK_STATUS;
     }
 
@@ -691,9 +593,7 @@ public abstract class VerifyHandler extends AadlHandler {
         getWindow().getShell().getDisplay().syncExec(new Runnable() {
             @Override
             public void run() {
-            	//System.out.println("...in enableRerunHandler....");
-                IHandlerService handlerService = getHandlerService();
-                //System.out.println(".. after getHandlerService...");
+            	IHandlerService handlerService = getHandlerService();
                 rerunActivation =
                         handlerService.activateHandler(RERUN_ID, new RerunHandler(root, VerifyHandler.this));
             }
