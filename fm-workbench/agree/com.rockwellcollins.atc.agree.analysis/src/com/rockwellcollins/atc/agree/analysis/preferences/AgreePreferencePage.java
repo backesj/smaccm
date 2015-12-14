@@ -67,6 +67,8 @@ public class AgreePreferencePage extends FieldEditorPreferencePage implements IW
     private NonNegativeIntegerFieldEditor pdrMaxEditor;
     private NonNegativeIntegerFieldEditor consistDepthEditor;
     private BooleanFieldEditor debugFieldEditor;
+    //Anitha: added this for  set of support checkbox in AGREE - analysis preferences 
+    private BooleanFieldEditor getSetOfSupportFieldEditor;
 
     @Override
     public void createFieldEditors() {
@@ -89,6 +91,11 @@ public class AgreePreferencePage extends FieldEditorPreferencePage implements IW
         inductiveCounterexampleFieldEditor = new BooleanFieldEditor(PreferenceConstants.PREF_INDUCT_CEX,
                 "Generate inductive counterexamples", getFieldEditorParent());
         addField(inductiveCounterexampleFieldEditor);
+        
+        //Anitha: added this for  set of support checkbox in AGREE - analysis preferences 
+        getSetOfSupportFieldEditor = new BooleanFieldEditor(PreferenceConstants.PREF_SUPPORT,
+                "Get Set of Support", getFieldEditorParent());
+        addField(getSetOfSupportFieldEditor);
 
         smoothingFieldEditor = new BooleanFieldEditor(PreferenceConstants.PREF_SMOOTH_CEX,
                 "Generate smooth counterexamples (minimal number of input value changes)",

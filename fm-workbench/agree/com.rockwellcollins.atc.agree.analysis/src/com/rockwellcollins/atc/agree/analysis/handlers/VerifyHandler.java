@@ -524,8 +524,8 @@ public abstract class VerifyHandler extends AadlHandler {
                 
             	activateTerminateHandlers(globalMonitor);
             	//Anitha: The code was calling KindApi. Iam going to change it to call jKindAPI to allow setting reduce support          	
-            	//KindApi api = PreferencesUtil.getKindApi();
-            	JKindApi api = (JKindApi) PreferencesUtil.getKindApi(PreferenceConstants.MODEL_CHECKER_JKIND, null);
+            	KindApi api = PreferencesUtil.getKindApi();
+            	//JKindApi api = (JKindApi) PreferencesUtil.getKindApi(PreferenceConstants.MODEL_CHECKER_JKIND, null);
                 KindApi consistApi = PreferencesUtil.getConsistencyApi();
                 JRealizabilityApi realApi = PreferencesUtil.getJRealizabilityApi();
                 while (!queue.isEmpty() && !globalMonitor.isCanceled()) {
@@ -538,8 +538,7 @@ public abstract class VerifyHandler extends AadlHandler {
                         	consistApi.execute(program, result, subMonitor);
                         } else if (result instanceof JRealizabilityResult) {
                             realApi.execute(program, (JRealizabilityResult) result, subMonitor);
-                        } else {
-                        	api.setReduceSupport();
+                        } else {                        	
                         	api.execute(program, result, subMonitor); 
                         }
                     } catch (JKindException e) {

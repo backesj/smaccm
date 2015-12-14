@@ -33,6 +33,7 @@ import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.action.IMenuListener;
 import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.preference.IPreferenceStore;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
@@ -55,6 +56,7 @@ import com.rockwellcollins.atc.agree.agree.AssumeStatement;
 import com.rockwellcollins.atc.agree.agree.FnCallExpr;
 import com.rockwellcollins.atc.agree.agree.GuaranteeStatement;
 import com.rockwellcollins.atc.agree.agree.LemmaStatement;
+import com.rockwellcollins.atc.agree.analysis.Activator;
 import com.rockwellcollins.atc.agree.analysis.ConsistencyResult;
 import com.rockwellcollins.atc.agree.analysis.Util;
 import com.rockwellcollins.atc.agree.analysis.ast.AgreeNode;
@@ -63,6 +65,7 @@ import com.rockwellcollins.atc.agree.analysis.ast.AgreeVar;
 import com.rockwellcollins.atc.agree.analysis.extentions.CexExtractor;
 import com.rockwellcollins.atc.agree.analysis.extentions.CexExtractorRegistry;
 import com.rockwellcollins.atc.agree.analysis.extentions.ExtensionRegistry;
+import com.rockwellcollins.atc.agree.analysis.preferences.PreferenceConstants;
 
 public class AgreeMenuListener implements IMenuListener {
     private static final GlobalURIEditorOpener globalURIEditorOpener = Util.getGlobalURIEditorOpener();
@@ -102,15 +105,19 @@ public class AgreeMenuListener implements IMenuListener {
     
     //Anitha added this method to get "View Set of Support" Option in AGREE results window.
     private void addViewSupportMenu(IMenuManager manager, AnalysisResult result) {
-    	System.out.println(" Iam in addViewSupportMenu ");
-    	if (!(result instanceof ConsistencyResult || result instanceof JRealizabilityResult)) {
-        	if (result instanceof PropertyResult) {
-        		 if (((PropertyResult) result).getStatus().equals(jkind.api.results.Status.VALID) ){ 
-        			 if (!((PropertyResult) result).getParent().getName().contains("consistent")) {
-        			 	manager.add(addViewSupportConsole("Set of Support", manager, result));
-        			 }
-        		 }
-        	}
+    	//Anitha: I added these 2 lines since if set of support is not enabled in the
+    	//preferences, it shouldnt appear in the results window. 
+    	IPreferenceStore prefs = Activator.getDefault().getPreferenceStore();    	
+    	if (prefs.getBoolean(PreferenceConstants.PREF_SUPPORT)) {
+	    	if (!(result instanceof ConsistencyResult || result instanceof JRealizabilityResult)) {
+	        	if (result instanceof PropertyResult) {
+	        		 if (((PropertyResult) result).getStatus().equals(jkind.api.results.Status.VALID) ){ 
+	        			 if (!((PropertyResult) result).getParent().getName().contains("consistent")) {
+	        			 	manager.add(addViewSupportConsole("Set of Support", manager, result));
+	        			 }
+	        		 }
+	        	}
+	    	}
     	}
     }
     
@@ -118,7 +125,6 @@ public class AgreeMenuListener implements IMenuListener {
     private IAction addViewSupportConsole(String text, IMenuManager manager, AnalysisResult result) {
         return new Action(text) {
         	public void run() { 
-        		System.out.println(" Iam in addViewSupportConsole ");
         		Map<String, EObject> tempRefMap = linker.getReferenceMap(result.getParent());
 		        if (tempRefMap == null) {
 		            tempRefMap = linker.getReferenceMap(result);
@@ -127,8 +133,7 @@ public class AgreeMenuListener implements IMenuListener {
 		        //Anitha: for some reason I am always getting the lustre  console
 		        final MessageConsole console1 = findConsole("Lustre");
 		        console1.clearConsole();
-		        console1.destroy();
-        		
+		        console1.destroy();        		
 		        
         		final MessageConsole console = findConsole("Support");
 				showConsole(console);
@@ -138,10 +143,10 @@ public class AgreeMenuListener implements IMenuListener {
         	            @Override
         	            public void run() {
 				            try (MessageConsoleStream out = console.newMessageStream()) {                
-			                	if (!(result instanceof ConsistencyResult || result instanceof JRealizabilityResult)) {
-			                	if (result instanceof PropertyResult) {
-			                		 if (((PropertyResult) result).getStatus().equals(jkind.api.results.Status.VALID) ){ 
-			                    	    if (!((PropertyResult) result).getParent().getName().contains("consistent")) {
+//			                	if (!(result instanceof ConsistencyResult || result instanceof JRealizabilityResult)) {
+//			                	if (result instanceof PropertyResult) {
+//			                		 if (((PropertyResult) result).getStatus().equals(jkind.api.results.Status.VALID) ){ 
+//			                    	    if (!((PropertyResult) result).getParent().getName().contains("consistent")) {
 			                    			 ValidProperty vp = (ValidProperty)(((PropertyResult) result).getProperty());
 			                    			 printHLine(out, 2);
 			            	        		 out.println("Set of Support for Gurantee: "+"{"+vp.getName()+"}");
@@ -155,10 +160,10 @@ public class AgreeMenuListener implements IMenuListener {
 			            	        			out.println(String.format("%-25s%-25s",componentName ,"{"+guranteeName+"}"));        			
 			            	        		 }
 			            	        		 printHLine(out, 2);                	        		  
-			            	        	 }
-			                    	 }
-			                		}
-			                     }                    	
+//			            	        	 }
+//			                    	 }
+//			                		}
+//			                     }                    	
 			                } catch (IOException e) {
 			                    e.printStackTrace();
 			                }
@@ -253,8 +258,7 @@ public class AgreeMenuListener implements IMenuListener {
     }
 
     private void addViewLustreMenu(IMenuManager manager, AnalysisResult result) {
-    	System.out.println(" I am in addViewLustreMenu  ");
-        Program program = linker.getProgram(result);
+    	Program program = linker.getProgram(result);
         if (program == null && result instanceof PropertyResult) {
             program = linker.getProgram(result.getParent());
         }
@@ -268,7 +272,6 @@ public class AgreeMenuListener implements IMenuListener {
             PropertyResult pr = (PropertyResult) result;
             Map<String, EObject> refMap = linker.getReferenceMap(pr.getParent());
             EObject property = refMap.get(pr.getName());
-            System.out.println("pr.getName() ="+pr.getName()+"=");
             if (property instanceof GuaranteeStatement) {
                 manager.add(createHyperlinkAction("Go To Guarantee", property));
             }
@@ -329,7 +332,6 @@ public class AgreeMenuListener implements IMenuListener {
         return new Action(actionName) {
             @Override
             public void run() {
-            	System.out.println(" I am in createWriteConsoleAction  ");
             	final MessageConsole console = findConsole(consoleName);
                 showConsole(console);
                 console.clearConsole();
