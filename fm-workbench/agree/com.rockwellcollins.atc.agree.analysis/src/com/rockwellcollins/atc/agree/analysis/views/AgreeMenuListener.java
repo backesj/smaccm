@@ -143,27 +143,31 @@ public class AgreeMenuListener implements IMenuListener {
         	            @Override
         	            public void run() {
 				            try (MessageConsoleStream out = console.newMessageStream()) {                
-//			                	if (!(result instanceof ConsistencyResult || result instanceof JRealizabilityResult)) {
-//			                	if (result instanceof PropertyResult) {
-//			                		 if (((PropertyResult) result).getStatus().equals(jkind.api.results.Status.VALID) ){ 
-//			                    	    if (!((PropertyResult) result).getParent().getName().contains("consistent")) {
-			                    			 ValidProperty vp = (ValidProperty)(((PropertyResult) result).getProperty());
-			                    			 printHLine(out, 2);
-			            	        		 out.println("Set of Support for Gurantee: "+"{"+vp.getName()+"}");
-			                    			 printHLine(out, 2);
-			                    			 printHLine(out, 2);
-			                    			 out.println(String.format("%-25s%-25s","Component name","Property name"));
-			            	        		 printHLine(out, 2);
-			            	        		 for (String supportString : vp.getSupport()) {  
-			            	        			String componentName =  supportString.substring(0,supportString.indexOf('.'));        			
-			            	        			String guranteeName =  supportString.substring(supportString.indexOf('.')+1,supportString.length());
-			            	        			out.println(String.format("%-25s%-25s",componentName ,"{"+guranteeName+"}"));        			
-			            	        		 }
-			            	        		 printHLine(out, 2);                	        		  
-//			            	        	 }
-//			                    	 }
-//			                		}
-//			                     }                    	
+                    			 ValidProperty vp = (ValidProperty)(((PropertyResult) result).getProperty());
+                    			 printHLine(out, 2);
+            	        		 out.println("Set of Support for Gurantee: "+"{"+vp.getName()+"}");
+            	        		 printHLine(out, 2);
+            	        		 out.println("");
+                    			 if (!vp.getSupport().isEmpty()){
+	                    			 printHLine(out, 2);
+	                    			 out.println(String.format("%-25s%-25s","Component name","Property name"));
+	            	        		 printHLine(out, 2);
+	            	        		 for (String supportString : vp.getSupport()) {
+	            	        			 String componentName = "";
+	            	        			 String guranteeName =  "";
+	            	        			if (supportString.contains(".")) {
+	            	        			 componentName =  supportString.substring(0,supportString.indexOf('.'));        			
+	            	        			 guranteeName =  supportString.substring(supportString.indexOf('.')+1,supportString.length());
+	            	        			}else{
+	            	        				componentName = "Top Level System";
+	            	        				guranteeName=supportString;
+	            	        			}
+	            	        			out.println(String.format("%-25s%-25s",componentName ,"{"+guranteeName+"}"));        			
+	            	        		 }
+	            	        		 printHLine(out, 2);   
+                    			 }else{
+                    				 out.println(" There are no support elements.");
+                    			 }
 			                } catch (IOException e) {
 			                    e.printStackTrace();
 			                }

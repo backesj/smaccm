@@ -402,6 +402,9 @@ public abstract class VerifyHandler extends AadlHandler {
     	   	
     	String refStr = getReferenceStr((AgreeVar) var);
     	// TODO verify which reference should be put here
+    	
+    //	System.out.println("var.id " + var.id +"   reference " + refStr);
+        
         refMap.put(refStr, ((AgreeVar) var).reference);
         refMap.put(var.id, ((AgreeVar) var).reference);
         // TODO we could clean up the agree renaming as well
@@ -436,7 +439,7 @@ public abstract class VerifyHandler extends AadlHandler {
     }
 
     private String getReferenceStr(AgreeVar var) {
-
+    	
         String prefix = getCategory(var);
         if (prefix == null) {
             return null;
@@ -447,14 +450,16 @@ public abstract class VerifyHandler extends AadlHandler {
      
         String seperator = (prefix == "" ? "" : ".");
         EObject reference = var.reference;
+       
         if (reference instanceof GuaranteeStatement) {
             return ((GuaranteeStatement) reference).getStr();
         } else if (reference instanceof AssumeStatement) {
-            return prefix + " assume: " + ((AssumeStatement) reference).getStr();
+        	return prefix + "assumption: " + ((AssumeStatement) reference).getStr();
+        	// return ((AssumeStatement) reference).getStr();
         } else if (reference instanceof LemmaStatement) {
             return prefix + " lemma: " + ((LemmaStatement) reference).getStr();
         } else if (reference instanceof AssertStatement) {
-            throw new AgreeException("We really didn't expect to see an assert statement here");
+        	throw new AgreeException("We really didn't expect to see an assert statement here");
         } else if (reference instanceof Arg) {
             return prefix + seperator + ((Arg) reference).getName();
         } else if (reference instanceof DataPort) {        	

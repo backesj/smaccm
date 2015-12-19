@@ -177,10 +177,25 @@ public class LustreAstBuilder {
         List<VarDecl> inputs = new ArrayList<>();
         List<Equation> equations = new ArrayList<>();
         List<String> properties = new ArrayList<>();
+        
 
+        //Anitha added this code to include top level assumptions in set of support
+        List<String> setofsupport = new ArrayList<>();
+        
+        int count = 0;
         for (AgreeStatement assumption : flatNode.assumptions) {
-            assertions.add(assumption.expr);
-        }
+            //assertions.add(assumption.expr);
+          //  System.out.println("Main node Assumptions : " + assumption.expr);
+            String assumeName = "_TOP__"+"ASSUME"+dotChar+count;
+            locals.add(new AgreeVar(assumeName, NamedType.BOOL,assumption.reference, flatNode.compInst));
+        	//making each gurantee an expression assigned to a new variabl;e.
+            equations.add(new Equation(new IdExpr(assumeName), assumption.expr));
+            
+            assertions.add(new IdExpr(assumeName));
+            
+            count++;
+            setofsupport.add(assumeName);
+	    }
 
         for (AgreeStatement assertion : flatNode.assertions) {
             assertions.add(assertion.expr);
@@ -219,6 +234,8 @@ public class LustreAstBuilder {
         builder.addEquations(equations);
         builder.addProperties(properties);
         builder.addAssertions(assertions);
+        // Anitha added this line to include top level assumptions in set of support
+        builder.addSupports(setofsupport);
         
         Node main = builder.build();
         nodes.add(main);
@@ -449,8 +466,6 @@ public class LustreAstBuilder {
         List<Equation> equations = new ArrayList<>();
         List<Expr> assertions = new ArrayList<>();
         List<String> setofsupport = new ArrayList<>();
-        //Anitha: this has to be an input
-        boolean needSupport=true; 
         
         Expr assumeConjExpr = new BoolExpr(true);
         int i = 0;
@@ -507,9 +522,8 @@ public class LustreAstBuilder {
 	            //preparing the conjunction of all gurantees for final assert. 
 	            IdExpr newPropName = new IdExpr(guaranteeName);
 	            guarConjExpr = new BinaryExpr(newPropName, BinaryOp.AND, guarConjExpr);
-	            if (needSupport) {
-		            setofsupport.add(guaranteeName);
-		        }
+	            setofsupport.add(guaranteeName);
+		        
 	        }
         }
        
@@ -548,10 +562,8 @@ public class LustreAstBuilder {
         	 locals.add(new AgreeVar(exprName, NamedType.BOOL, ref , agreeNode.compInst));
         	 equations.add(new Equation(new IdExpr(exprName), expr));
              count++;
-             if (needSupport) {
-		            setofsupport.add(exprName);
-		     }
-             IdExpr newAssertName = new IdExpr(exprName);
+             setofsupport.add(exprName);
+		     IdExpr newAssertName = new IdExpr(exprName);
              assertExpr = new BinaryExpr(newAssertName, BinaryOp.AND, assertExpr);
          }
         assertExpr = new BinaryExpr(assertExpr, BinaryOp.AND, new BinaryExpr(assumeHistId, BinaryOp.IMPLIES, guarConjExpr));
