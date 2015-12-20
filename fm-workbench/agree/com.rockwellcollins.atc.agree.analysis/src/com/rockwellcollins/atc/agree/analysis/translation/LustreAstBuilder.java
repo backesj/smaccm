@@ -583,25 +583,35 @@ public class LustreAstBuilder {
         	//System.out.println("\n expr " + expr.toString());			
 			String lhs =  expr.toString().substring(1,expr.toString().indexOf('=')).trim();        			
 			//System.out.println("LustreAST lhs " + lhs);			
-			String exprName = dotChar+agreeNode.id+dotChar+"EXP"+dotChar+count;
-        	 EObject ref = null;
-        	 for (AgreeVar var : agreeNode.outputs) {
-        		 ref = null; 
-        		 if (var.id != null && var.id.toString().equals(lhs)) {
-        			  ref = var.reference;
-        			  break;
-        		 }
-             }
-        	 locals.add(new AgreeVar(exprName, NamedType.BOOL, ref , agreeNode.compInst));
-        	 equations.add(new Equation(new IdExpr(exprName), expr));
-             count++;
-             setofsupport.add(exprName);
+			String exprName = lhs;
+			
+			//Anitha: an assertion can be a assumption. 
+			//We do not include in the set of support the subcomponent assumption
+			//since it is implied by system assumptions/component gurantees.
+			if (!lhs.contains("__ASSUME")){
+				exprName = dotChar+agreeNode.id+dotChar+"EXP"+dotChar+count;
+				EObject ref = null;
+	        	 for (AgreeVar var : agreeNode.outputs) {
+	        		 ref = null; 
+	        		 if (var.id != null && var.id.toString().equals(lhs)) {
+	        			  ref = var.reference;
+	        			  break;
+	        		 }
+	             }
+	        	 locals.add(new AgreeVar(exprName, NamedType.BOOL, ref , agreeNode.compInst));
+	        	 equations.add(new Equation(new IdExpr(exprName), expr));
+	             count++;
+	             setofsupport.add(exprName);
+			}
+             
 		     IdExpr newAssertName = new IdExpr(exprName);
              assertExpr = new BinaryExpr(newAssertName, BinaryOp.AND, assertExpr);
-         }
+            // System.out.println("assertExpr:  " + assertExpr);	
+        }
         assertExpr = new BinaryExpr(assertExpr, BinaryOp.AND, new BinaryExpr(assumeHistId, BinaryOp.IMPLIES, guarConjExpr));
        
-       
+        //System.out.println("Final assertExpr: \n " + assertExpr);	
+        
         String outputName = "__ASSERT";
         List<VarDecl> outputs = new ArrayList<>();
         outputs.add(new VarDecl(outputName, NamedType.BOOL));

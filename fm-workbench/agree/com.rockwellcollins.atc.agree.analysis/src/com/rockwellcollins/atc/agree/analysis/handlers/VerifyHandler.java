@@ -336,12 +336,16 @@ public abstract class VerifyHandler extends AadlHandler {
             	addReference(refMap, renaming, layout, var);
             }
         }
+    	
+    	
         
         for (VarDecl var : mainNode.locals) {
             if (var instanceof AgreeVar) {
             	addReference(refMap, renaming, layout, var);      
             	//Anitha added this for support string renaming <componentname.localvarname>
-            	addReferenceForSupport(mainNode,refMap, renaming, layout, var);
+            	if (!mainNode.id.equals("consistency")) {
+            		addReferenceForSupport(mainNode,refMap, renaming, layout, var, agreeProgram);
+            	}
             }
         }
         
@@ -379,21 +383,45 @@ public abstract class VerifyHandler extends AadlHandler {
     }
     
     
-  //Anitha: adding these references additionally for support variables.
+   //Anitha: adding these references additionally for support variables.
     private void addReferenceForSupport(Node node, Map<String, EObject> refMap, AgreeRenaming renaming, AgreeLayout layout,
-            VarDecl var) {
+            VarDecl var, AgreeProgram agreeProgram ) {
     	
-    		String nodeId = node.id;	                
-    		nodeId=nodeId.substring(nodeId.indexOf("__")+2,nodeId.length());
-    		if (var.id.contains("_"+nodeId)) {
+    	   String componentName = null;
+    	   String varId="";
+    	   String varReference="";
+    			   
+    	   String strippedNodeId = layout.getCategory(node.id);
+    	   
+    	   for (AgreeNode subNode : agreeProgram.agreeNodes) { 
+    			if (!strippedNodeId.isEmpty() && (subNode.id).equals(strippedNodeId)) {
+    				//Anitha: We need to get the system name that is displayed
+    				//get qualified name gets packagename::systemname
+    				componentName =  subNode.compInst.getComponentClassifier().getQualifiedName();    
+    				//the systemname can be systemname.impl (depending upon how it is declared in the features
+    				componentName =componentName.substring(componentName.indexOf(":")+2,componentName.length());
+    				//stripping off .impl if its present just for pretty printing
+    				if(componentName.contains(".Impl")){
+    					componentName =componentName.substring(0,componentName.indexOf(".Impl"));
+    				}
+    				//System.out.println(componentName);
+    			}
+		   }
+    	   varId= var.id;
+    	   if (!strippedNodeId.isEmpty() && varId.contains(strippedNodeId)) {
 	        	String refStr = getReferenceStr((AgreeVar) var);
-	    		String currentNodeRename = renaming.rename(nodeId);
-	            String supportStringId = node.id+"."+var.id;
-	        	String supportStringRef = currentNodeRename+"."+refStr;	                
-	        	refMap.put(supportStringId, ((AgreeVar) var).reference);
-	            refMap.put(supportStringRef, ((AgreeVar) var).reference);
-	            renaming.addExplicitRename(supportStringId, supportStringRef);
+	    		String currentNodeRename = renaming.rename(strippedNodeId);
+	    		if (componentName != null) {	    			
+	    			currentNodeRename = componentName;
+	    		}
+	    		varId = node.id+"."+varId;	    		
+	    		varReference = currentNodeRename+"."+refStr;	            
+    		}else{
+    			varReference = getReferenceStr((AgreeVar) var);
     		}
+    		refMap.put(varId, ((AgreeVar) var).reference);
+            refMap.put(varReference, ((AgreeVar) var).reference);
+            renaming.addExplicitRename(varId, varReference);
     }
     
 
@@ -403,8 +431,6 @@ public abstract class VerifyHandler extends AadlHandler {
     	String refStr = getReferenceStr((AgreeVar) var);
     	// TODO verify which reference should be put here
     	
-    //	System.out.println("var.id " + var.id +"   reference " + refStr);
-        
         refMap.put(refStr, ((AgreeVar) var).reference);
         refMap.put(var.id, ((AgreeVar) var).reference);
         // TODO we could clean up the agree renaming as well
@@ -544,7 +570,9 @@ public abstract class VerifyHandler extends AadlHandler {
                         } else if (result instanceof JRealizabilityResult) {
                             realApi.execute(program, (JRealizabilityResult) result, subMonitor);
                         } else {                        	
-                        	api.execute(program, result, subMonitor); 
+                        	//System.out.println("Calling API : " + System.currentTimeMillis());
+                        	api.execute(program, result, subMonitor);
+                        	//System.out.println("End calling API : " + System.currentTimeMillis());
                         }
                     } catch (JKindException e) {
                     	//Anitha: I changed the system.out to system.err
