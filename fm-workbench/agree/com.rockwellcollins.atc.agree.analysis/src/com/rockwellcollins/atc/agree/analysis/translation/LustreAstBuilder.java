@@ -170,7 +170,7 @@ public class LustreAstBuilder {
             RecordType recType = (RecordType) type;
             types.add(new TypeDef(recType.id, type));
         }
-
+        
         AgreeNode flatNode = flattenAgreeNode(agreeProgram.topNode, "_TOP__", monolithic);
         List<Expr> assertions = new ArrayList<>();
         List<VarDecl> locals = new ArrayList<>();
@@ -185,22 +185,55 @@ public class LustreAstBuilder {
         int count = 0;
         for (AgreeStatement assumption : flatNode.assumptions) {
             //assertions.add(assumption.expr);
-          //  System.out.println("Main node Assumptions : " + assumption.expr);
             String assumeName = "_TOP__"+"ASSUME"+dotChar+count;
             locals.add(new AgreeVar(assumeName, NamedType.BOOL,assumption.reference, flatNode.compInst));
         	//making each gurantee an expression assigned to a new variabl;e.
             equations.add(new Equation(new IdExpr(assumeName), assumption.expr));
-            
             assertions.add(new IdExpr(assumeName));
-            
             count++;
             setofsupport.add(assumeName);
 	    }
-
-        for (AgreeStatement assertion : flatNode.assertions) {
-            assertions.add(assertion.expr);
+        //Anitha: Need to check if this is the most efficient way to add the equations.
+        AgreeNode topNode =  agreeProgram.topNode;
+       // System.out.println("topNode : " + topNode.id);
+        count = 0;
+        for (AgreeStatement assertion : topNode.assertions) {
+			
+			 String lhs =  assertion.expr.toString().substring(1,assertion.expr.toString().indexOf('=')).trim();        			
+			 //System.out.println("LustreAST lhs " + lhs);			
+			 EObject ref = null;
+			 for (AgreeVar var : topNode.outputs) {
+				 ref = null; 
+				 if (var.id != null && var.id.toString().equals(lhs)) {
+					  ref = var.reference;
+					  break;
+				 }
+			 }
+			String eqnName = "_TOP__"+"EQN"+dotChar+count;
+			locals.add(new AgreeVar(eqnName, NamedType.BOOL,ref, flatNode.compInst));
+			equations.add(new Equation(new IdExpr(eqnName), assertion.expr));   
+			assertions.add(new IdExpr(eqnName));
+			count++;
+			setofsupport.add(eqnName);
+			//System.out.println("assertion : " + assertion.expr);
         }
+       
+         
         
+        for (AgreeStatement assertion : flatNode.assertions) {
+        	//Anitha added this code to ensure top level eqations are not added twice
+        	boolean equationAdded = false;
+        	for (AgreeStatement equation : topNode.assertions) {
+        		//System.out.println(assertion.expr  +  "  ---  " +equation.expr);
+        		if (assertion.expr.equals(equation.expr)) {
+        			equationAdded = true;
+        		}
+        	}
+        	if (!equationAdded) {
+        		assertions.add(assertion.expr);
+        	}
+        }
+
         
         int i = 0;
         for (AgreeStatement guarantee : flatNode.lemmas) {
@@ -643,6 +676,8 @@ public class LustreAstBuilder {
 
         // add any clock constraints
         assertions.addAll(agreeNode.assertions);
+        
+        
         assertions.add(new AgreeStatement("", agreeNode.clockConstraint, null));
         inputs.addAll(agreeNode.inputs);
         outputs.addAll(agreeNode.outputs);

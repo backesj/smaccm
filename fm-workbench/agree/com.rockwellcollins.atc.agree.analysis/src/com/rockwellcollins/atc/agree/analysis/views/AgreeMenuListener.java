@@ -130,10 +130,12 @@ public class AgreeMenuListener implements IMenuListener {
 		            tempRefMap = linker.getReferenceMap(result);
 		        }
 		        final Map<String, EObject> refMap = tempRefMap;
+		        
+		       // System.out.println(refMap.toString());
 		        //Anitha: for some reason I am always getting the lustre  console
-		        final MessageConsole console1 = findConsole("Lustre");
-		        console1.clearConsole();
-		        console1.destroy();        		
+		       // final MessageConsole console1 = findConsole("Lustre");
+		       // console1.clearConsole();
+		       // console1.destroy();        		
 		        
         		final MessageConsole console = findConsole("Support");
 				showConsole(console);
@@ -161,12 +163,13 @@ public class AgreeMenuListener implements IMenuListener {
 	            	        			}else{
 	            	        				componentName = "Top Level System";
 	            	        				guranteeName=supportString;
+	            	        				//System.out.println("supportString " + refMap.get(supportString));
 	            	        			}
 	            	        			out.println(String.format("%-25s%-25s",componentName ,"{"+guranteeName+"}"));        			
 	            	        		 }
 	            	        		 printHLine(out, 2);   
                     			 }else{
-                    				 out.println(" There are no support elements.");
+                    				 out.println("There are no support elements to display.");
                     			 }
 			                } catch (IOException e) {
 			                    e.printStackTrace();
