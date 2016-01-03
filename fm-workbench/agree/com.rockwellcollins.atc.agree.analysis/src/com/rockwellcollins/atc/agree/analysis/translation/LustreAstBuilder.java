@@ -198,19 +198,26 @@ public class LustreAstBuilder {
        // System.out.println("topNode : " + topNode.id);
         count = 0;
         for (AgreeStatement assertion : topNode.assertions) {
+        	//Anitha: assertion can be eq or assert statements
+        	System.out.println(" asserion: " + assertion.reference);
+        	System.out.println(" asserion: " + assertion.expr.toString());
 			
-			 String lhs =  assertion.expr.toString().substring(1,assertion.expr.toString().indexOf('=')).trim();        			
 			 //System.out.println("LustreAST lhs " + lhs);			
 			 EObject ref = null;
-			 for (AgreeVar var : topNode.outputs) {
-				 ref = null; 
-				 if (var.id != null && var.id.toString().equals(lhs)) {
-					  ref = var.reference;
-					  break;
-				 }
-			 }
+			 
+			 if (assertion.expr.toString().contains("=")) {
+				 String lhs =  assertion.expr.toString().substring(1,assertion.expr.toString().indexOf('=')).trim();        			
+				 for (AgreeVar var : topNode.outputs) {
+					 ref = null; 
+					 if (var.id != null && var.id.toString().equals(lhs)) {
+						  ref = var.reference;
+						  break;
+					 }
+				}
+			}
+			
 			String eqnName = "_TOP__"+"EQN"+dotChar+count;
-			locals.add(new AgreeVar(eqnName, NamedType.BOOL,ref, flatNode.compInst));
+			locals.add(new AgreeVar(eqnName, NamedType.BOOL, ref, flatNode.compInst));
 			equations.add(new Equation(new IdExpr(eqnName), assertion.expr));   
 			assertions.add(new IdExpr(eqnName));
 			count++;
@@ -708,6 +715,9 @@ public class LustreAstBuilder {
             String sourName = conn.sourceNode == null ? "" : conn.sourceNode.id + AgreeASTBuilder.dotChar;
             sourName = sourName + conn.sourceVarName;
 
+           // System.out.println("\n destName " +destName);
+           // System.out.println("\n sourName " +sourName);
+            
             Expr connExpr;
             
             if(!conn.delayed){
@@ -725,6 +735,7 @@ public class LustreAstBuilder {
                 if(type == null){
                     throw new AgreeException("Could not find type for variable '"+sourName);
                 }
+           //     System.out.println("\n In addConnectionConstraints \n" + type);
                 Expr initExpr = AgreeUtils.getInitValueFromType(type);
                 Expr preSource = new UnaryExpr(UnaryOp.PRE, new IdExpr(sourName));
                 Expr sourExpr = new BinaryExpr(initExpr, BinaryOp.ARROW, preSource);

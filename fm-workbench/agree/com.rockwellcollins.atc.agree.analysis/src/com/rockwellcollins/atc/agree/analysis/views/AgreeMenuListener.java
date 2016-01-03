@@ -3,6 +3,7 @@ package com.rockwellcollins.atc.agree.analysis.views;
 import java.io.File;
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -88,11 +89,11 @@ public class AgreeMenuListener implements IMenuListener {
     	IStructuredSelection selection = (IStructuredSelection) tree.getViewer().getSelection();
         if (!selection.isEmpty()) {
             AnalysisResult result = (AnalysisResult) selection.getFirstElement();
-            addLinkedMenus(manager, result);
+            addLinkedMenus(manager, result,selection);
         }
     }
 
-    private void addLinkedMenus(IMenuManager manager, AnalysisResult result) {
+    private void addLinkedMenus(IMenuManager manager, AnalysisResult result,IStructuredSelection selection) {
         addOpenComponentMenu(manager, result);
         addOpenContractMenu(manager, result);
         addViewLogMenu(manager, result);
@@ -101,6 +102,126 @@ public class AgreeMenuListener implements IMenuListener {
         addResultsLinkingMenu(manager, result);
         //Anitha added this method to get "View Set of Support" Option in AGREE results window.
         addViewSupportMenu(manager, result);
+        //Anitha added this method to get traceability document in console
+        addTraceabilityDocMenu(manager, result);
+    }
+    
+    //Anitha added this method to get traceability document in console 
+    private void addTraceabilityDocMenu(IMenuManager manager, AnalysisResult result) {
+    	System.out.println("addTraceabilityDocMenu");
+    	IPreferenceStore prefs = Activator.getDefault().getPreferenceStore();  
+    	if (prefs.getBoolean(PreferenceConstants.PREF_SUPPORT)) {
+	    	//if (!result.isEmpty()) {
+	    		//System.out.println("result " + result);
+	    		//System.out.println("result " + result.getParent().toString());
+	    		//System.out.println("result " + result.getName());
+	    		if (result.getName().equals("Contract Guarantees")) {
+	    			if (result.toString().contains("- Valid")) {
+		    		    //Anitha: The view traceability doc should be displayed only when there is atleast one Valid property
+		    			manager.add(addViewTraceabilityConsole("View Traceability Document", manager, result));
+	    			}
+	    		}
+	   // 	}
+    	}
+    }
+    
+    private IAction addViewTraceabilityConsole(String text, IMenuManager manager, AnalysisResult result) {
+    	System.out.println ("addViewTraceabilityConsole ");
+    	return new Action(text) {
+    		public void run() {
+    			Map<String, EObject> tempRefMap = linker.getReferenceMap(result.getParent());
+		        if (tempRefMap == null) {
+		            tempRefMap = linker.getReferenceMap(result);
+		        }
+		        final Map<String, EObject> refMap = tempRefMap;
+		        
+    			final MessageConsole console = findConsole("Traceability");
+				showConsole(console);
+        		console.clearConsole();
+        		console.addPatternMatchListener(new AgreePatternListener(refMap));
+        		System.out.println ("before new thread ");
+        		
+        		new Thread(new Runnable() {
+     	            @Override
+     	            public void run() {
+				        try {   
+				        	MessageConsoleStream out = console.newMessageStream();
+				        	printHLine(out, 2);
+	       	        		out.println("Traceability for Valid Contract Guarantees");
+	       	        		
+	       	        		printHLine(out, 2);
+	       	        		out.println("");
+				        	System.out.println (result.getClass());
+			        	    if (result instanceof JKindResult) {
+			        	    	 System.out.println ("result instanceof JKindResult");
+			        	    	 List<PropertyResult> allProperties = new ArrayList<PropertyResult> (((JKindResult) result).getPropertyResults());
+			        	    	 System.out.println (allProperties.size());
+			        	    	 out.println(String.format("%-30s%-30s%-30s","Gurantee name","Component name","Property name"));
+			        	    	 printHLine(out, 2);
+			       	        		
+			        	    	 if (!allProperties.isEmpty()) {		 
+			        	    		 for (PropertyResult prop : allProperties) {
+			        	    			 System.out.println (prop.getName()   +  "   " + prop.getStatus());
+			        	    			 if (prop.getStatus().equals(jkind.api.results.Status.VALID)){
+			        	    				 System.out.println (prop.getName()   +  "   " + prop.getStatus());
+			        	    				 ValidProperty vp = (ValidProperty)(prop.getProperty());
+			        	    				 if (!vp.getSupport().isEmpty()){
+			        	    					 out.println("{"+vp.getName()+"}");
+				        	    				 for (String supportString : vp.getSupport()) {
+			        	    						String componentName = "";
+					           	        			String guranteeName =  "";
+ 					           	        			if (supportString.contains(".")) {
+					           	        			  componentName =  supportString.substring(0,supportString.indexOf('.'));        			
+					           	        			  guranteeName =  supportString.substring(supportString.indexOf('.')+1,supportString.length());
+					           	        			}else{
+					           	        				componentName = "Top Level System";
+					           	        				guranteeName=supportString;					           	        				
+					           	        			}
+ 					           	        		    out.println(String.format("%-30s%-30s%-30s","", componentName ,"{"+guranteeName+"}"));
+			        	    					 }
+				        	    				 printHLine(out, 2);
+			        	    				 }
+			        	    				 
+			        	    			 }
+			        	    			 
+			        	    		 }
+			        	    	 }
+			        	     }
+				        	 
+					        	 
+//		               			 printHLine(out, 2);
+//		       	        		 out.println("Set of Support for Gurantee: "+"{"+vp.getName()+"}");
+//		       	        		 printHLine(out, 2);
+//		       	        		 out.println("");
+//		               			 if (!vp.getSupport().isEmpty()){
+//		                   			 printHLine(out, 2);
+//		                   			 out.println(String.format("%-25s%-25s","Component name","Property name"));
+//		           	        		 printHLine(out, 2);
+//		           	        		 for (String supportString : vp.getSupport()) {
+//		           	        			 String componentName = "";
+//		           	        			 String guranteeName =  "";
+//		           	        			if (supportString.contains(".")) {
+//		           	        			 componentName =  supportString.substring(0,supportString.indexOf('.'));        			
+//		           	        			 guranteeName =  supportString.substring(supportString.indexOf('.')+1,supportString.length());
+//		           	        			}else{
+//		           	        				componentName = "Top Level System";
+//		           	        				guranteeName=supportString;
+//		           	        				//System.out.println("supportString " + refMap.get(supportString));
+//		           	        			}
+//		           	        			out.println(String.format("%-25s%-25s",componentName ,"{"+guranteeName+"}"));        			
+//		           	        		 }
+//		           	        		 printHLine(out, 2);   
+//		               			 }else{
+//		               				 out.println("There are no support elements to display.");
+//		               			 }			
+				        	 
+		                } catch (Exception e) {
+		                    e.printStackTrace();
+		                }
+     	            }
+        		 }).start();
+    		}
+    	};
     }
     
     //Anitha added this method to get "View Set of Support" Option in AGREE results window.
