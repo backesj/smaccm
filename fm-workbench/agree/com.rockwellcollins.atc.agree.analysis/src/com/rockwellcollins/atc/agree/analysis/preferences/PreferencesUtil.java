@@ -13,11 +13,9 @@ import com.rockwellcollins.atc.agree.analysis.Activator;
 
 public class PreferencesUtil {
     public static KindApi getKindApi() {
-    	
-    	IPreferenceStore prefs = getPreferenceStore();
+        IPreferenceStore prefs = getPreferenceStore();
         String modelChecker = prefs.getString(PreferenceConstants.PREF_MODEL_CHECKER);
         String remoteUrl = prefs.getString(PreferenceConstants.PREF_REMOTE_URL);
-        
         KindApi api = getKindApi(modelChecker, remoteUrl);
         if (prefs.getBoolean(PreferenceConstants.PREF_DEBUG)) {
         	api.setApiDebug();
@@ -30,8 +28,7 @@ public class PreferencesUtil {
     }
 
     public static KindApi getKindApi(String modelChecker, String remoteUrl) {
-    	
-    	switch (modelChecker) {
+        switch (modelChecker) {
         case PreferenceConstants.MODEL_CHECKER_JKIND:
             return getJKindApi();
         case PreferenceConstants.MODEL_CHECKER_KIND2:
@@ -58,8 +55,7 @@ public class PreferencesUtil {
     }
 
     private static JKindApi getJKindApi() {
-    	
-    	IPreferenceStore prefs = getPreferenceStore();
+        IPreferenceStore prefs = getPreferenceStore();
         JKindApi api = new JKindApi();
 
         String solverString =
@@ -73,11 +69,6 @@ public class PreferencesUtil {
         if (prefs.getBoolean(PreferenceConstants.PREF_SMOOTH_CEX) && solver == SolverOption.YICES) {
             api.setSmoothCounterexamples();
         }
-        //Anitha: added this enable set of support based on checkbox in AGREE - analysis preferences 
-        if (prefs.getBoolean(PreferenceConstants.PREF_SUPPORT)) {
-        	api.setReduceSupport();
-        }
-        
         api.setN(prefs.getInt(PreferenceConstants.PREF_DEPTH));
         api.setTimeout(prefs.getInt(PreferenceConstants.PREF_TIMEOUT));
         api.setPdrMax(prefs.getInt(PreferenceConstants.PREF_PDR_MAX));

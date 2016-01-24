@@ -3,28 +3,21 @@ package com.rockwellcollins.atc.agree.analysis.views;
 import java.io.File;
 import java.io.IOException;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import jkind.api.results.AnalysisResult;
-import jkind.api.results.JKindResult;
 import jkind.api.results.JRealizabilityResult;
-import jkind.api.results.MapRenaming;
 import jkind.api.results.PropertyResult;
-import jkind.api.results.Renaming;
 import jkind.api.ui.results.AnalysisResultTree;
 import jkind.interval.NumericInterval;
-import jkind.lustre.Node;
 import jkind.lustre.Program;
-import jkind.lustre.VarDecl;
 import jkind.lustre.values.Value;
 import jkind.results.Counterexample;
 import jkind.results.InvalidProperty;
 import jkind.results.Property;
 import jkind.results.Signal;
 import jkind.results.UnknownProperty;
-import jkind.results.ValidProperty;
 import jkind.results.layout.Layout;
 
 import org.eclipse.emf.ecore.EObject;
@@ -34,7 +27,6 @@ import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.action.IMenuListener;
 import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.action.MenuManager;
-import org.eclipse.jface.preference.IPreferenceStore;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
@@ -48,7 +40,6 @@ import org.eclipse.ui.console.IConsoleView;
 import org.eclipse.ui.console.MessageConsole;
 import org.eclipse.ui.console.MessageConsoleStream;
 import org.eclipse.xtext.ui.editor.GlobalURIEditorOpener;
-import org.osate.aadl2.ComponentClassifier;
 import org.osate.aadl2.ComponentImplementation;
 import org.osate.ui.dialogs.Dialog;
 
@@ -57,20 +48,13 @@ import com.rockwellcollins.atc.agree.agree.AssumeStatement;
 import com.rockwellcollins.atc.agree.agree.FnCallExpr;
 import com.rockwellcollins.atc.agree.agree.GuaranteeStatement;
 import com.rockwellcollins.atc.agree.agree.LemmaStatement;
-import com.rockwellcollins.atc.agree.analysis.Activator;
-import com.rockwellcollins.atc.agree.analysis.ConsistencyResult;
 import com.rockwellcollins.atc.agree.analysis.Util;
-import com.rockwellcollins.atc.agree.analysis.ast.AgreeNode;
-import com.rockwellcollins.atc.agree.analysis.ast.AgreeProgram;
-import com.rockwellcollins.atc.agree.analysis.ast.AgreeVar;
 import com.rockwellcollins.atc.agree.analysis.extentions.CexExtractor;
 import com.rockwellcollins.atc.agree.analysis.extentions.CexExtractorRegistry;
 import com.rockwellcollins.atc.agree.analysis.extentions.ExtensionRegistry;
-import com.rockwellcollins.atc.agree.analysis.preferences.PreferenceConstants;
 
 public class AgreeMenuListener implements IMenuListener {
     private static final GlobalURIEditorOpener globalURIEditorOpener = Util.getGlobalURIEditorOpener();
-    
     private final IWorkbenchWindow window;
     private final AnalysisResultTree tree;
     private AgreeResultsLinker linker;
@@ -86,221 +70,21 @@ public class AgreeMenuListener implements IMenuListener {
 
     @Override
     public void menuAboutToShow(IMenuManager manager) {
-    	IStructuredSelection selection = (IStructuredSelection) tree.getViewer().getSelection();
+        IStructuredSelection selection = (IStructuredSelection) tree.getViewer().getSelection();
         if (!selection.isEmpty()) {
             AnalysisResult result = (AnalysisResult) selection.getFirstElement();
-            addLinkedMenus(manager, result,selection);
+            addLinkedMenus(manager, result);
         }
     }
 
-    private void addLinkedMenus(IMenuManager manager, AnalysisResult result,IStructuredSelection selection) {
+    private void addLinkedMenus(IMenuManager manager, AnalysisResult result) {
         addOpenComponentMenu(manager, result);
         addOpenContractMenu(manager, result);
         addViewLogMenu(manager, result);
         addViewCounterexampleMenu(manager, result);
         addViewLustreMenu(manager, result);
         addResultsLinkingMenu(manager, result);
-        //Anitha added this method to get "View Set of Support" Option in AGREE results window.
-        addViewSupportMenu(manager, result);
-        //Anitha added this method to get traceability document in console
-        addTraceabilityDocMenu(manager, result);
     }
-    
-    //Anitha added this method to get traceability document in console 
-    private void addTraceabilityDocMenu(IMenuManager manager, AnalysisResult result) {
-    	System.out.println("addTraceabilityDocMenu");
-    	IPreferenceStore prefs = Activator.getDefault().getPreferenceStore();  
-    	if (prefs.getBoolean(PreferenceConstants.PREF_SUPPORT)) {
-	    	//if (!result.isEmpty()) {
-	    		//System.out.println("result " + result);
-	    		//System.out.println("result " + result.getParent().toString());
-	    		//System.out.println("result " + result.getName());
-	    		if (result.getName().equals("Contract Guarantees")) {
-	    			if (result.toString().contains("- Valid")) {
-		    		    //Anitha: The view traceability doc should be displayed only when there is atleast one Valid property
-		    			manager.add(addViewTraceabilityConsole("View Traceability Document", manager, result));
-	    			}
-	    		}
-	   // 	}
-    	}
-    }
-    
-    private IAction addViewTraceabilityConsole(String text, IMenuManager manager, AnalysisResult result) {
-    	System.out.println ("addViewTraceabilityConsole ");
-    	return new Action(text) {
-    		public void run() {
-    			Map<String, EObject> tempRefMap = linker.getReferenceMap(result.getParent());
-		        if (tempRefMap == null) {
-		            tempRefMap = linker.getReferenceMap(result);
-		        }
-		        final Map<String, EObject> refMap = tempRefMap;
-		        
-    			final MessageConsole console = findConsole("Traceability");
-				showConsole(console);
-        		console.clearConsole();
-        		console.addPatternMatchListener(new AgreePatternListener(refMap));
-        		System.out.println ("before new thread ");
-        		
-        		new Thread(new Runnable() {
-     	            @Override
-     	            public void run() {
-				        try {   
-				        	MessageConsoleStream out = console.newMessageStream();
-				        	printHLine(out, 2);
-	       	        		out.println("Traceability for Valid Contract Guarantees");
-	       	        		
-	       	        		printHLine(out, 2);
-	       	        		out.println("");
-				        	System.out.println (result.getClass());
-			        	    if (result instanceof JKindResult) {
-			        	    	 System.out.println ("result instanceof JKindResult");
-			        	    	 List<PropertyResult> allProperties = new ArrayList<PropertyResult> (((JKindResult) result).getPropertyResults());
-			        	    	 System.out.println (allProperties.size());
-			        	    	 out.println(String.format("%-30s%-30s%-30s","Gurantee name","Component name","Property name"));
-			        	    	 printHLine(out, 2);
-			       	        		
-			        	    	 if (!allProperties.isEmpty()) {		 
-			        	    		 for (PropertyResult prop : allProperties) {
-			        	    			 System.out.println (prop.getName()   +  "   " + prop.getStatus());
-			        	    			 if (prop.getStatus().equals(jkind.api.results.Status.VALID)){
-			        	    				 System.out.println (prop.getName()   +  "   " + prop.getStatus());
-			        	    				 ValidProperty vp = (ValidProperty)(prop.getProperty());
-			        	    				 if (!vp.getSupport().isEmpty()){
-			        	    					 out.println("{"+vp.getName()+"}");
-				        	    				 for (String supportString : vp.getSupport()) {
-			        	    						String componentName = "";
-					           	        			String guranteeName =  "";
- 					           	        			if (supportString.contains(".")) {
-					           	        			  componentName =  supportString.substring(0,supportString.indexOf('.'));        			
-					           	        			  guranteeName =  supportString.substring(supportString.indexOf('.')+1,supportString.length());
-					           	        			}else{
-					           	        				componentName = "Top Level System";
-					           	        				guranteeName=supportString;					           	        				
-					           	        			}
- 					           	        		    out.println(String.format("%-30s%-30s%-30s","", componentName ,"{"+guranteeName+"}"));
-			        	    					 }
-				        	    				 printHLine(out, 2);
-			        	    				 }
-			        	    				 
-			        	    			 }
-			        	    			 
-			        	    		 }
-			        	    	 }
-			        	     }
-				        	 
-					        	 
-//		               			 printHLine(out, 2);
-//		       	        		 out.println("Set of Support for Gurantee: "+"{"+vp.getName()+"}");
-//		       	        		 printHLine(out, 2);
-//		       	        		 out.println("");
-//		               			 if (!vp.getSupport().isEmpty()){
-//		                   			 printHLine(out, 2);
-//		                   			 out.println(String.format("%-25s%-25s","Component name","Property name"));
-//		           	        		 printHLine(out, 2);
-//		           	        		 for (String supportString : vp.getSupport()) {
-//		           	        			 String componentName = "";
-//		           	        			 String guranteeName =  "";
-//		           	        			if (supportString.contains(".")) {
-//		           	        			 componentName =  supportString.substring(0,supportString.indexOf('.'));        			
-//		           	        			 guranteeName =  supportString.substring(supportString.indexOf('.')+1,supportString.length());
-//		           	        			}else{
-//		           	        				componentName = "Top Level System";
-//		           	        				guranteeName=supportString;
-//		           	        				//System.out.println("supportString " + refMap.get(supportString));
-//		           	        			}
-//		           	        			out.println(String.format("%-25s%-25s",componentName ,"{"+guranteeName+"}"));        			
-//		           	        		 }
-//		           	        		 printHLine(out, 2);   
-//		               			 }else{
-//		               				 out.println("There are no support elements to display.");
-//		               			 }			
-				        	 
-		                } catch (Exception e) {
-		                    e.printStackTrace();
-		                }
-     	            }
-        		 }).start();
-    		}
-    	};
-    }
-    
-    //Anitha added this method to get "View Set of Support" Option in AGREE results window.
-    private void addViewSupportMenu(IMenuManager manager, AnalysisResult result) {
-    	//Anitha: I added these 2 lines since if set of support is not enabled in the
-    	//preferences, it shouldnt appear in the results window. 
-    	IPreferenceStore prefs = Activator.getDefault().getPreferenceStore();    	
-    	if (prefs.getBoolean(PreferenceConstants.PREF_SUPPORT)) {
-	    	if (!(result instanceof ConsistencyResult || result instanceof JRealizabilityResult)) {
-	        	if (result instanceof PropertyResult) {
-	        		 if (((PropertyResult) result).getStatus().equals(jkind.api.results.Status.VALID) ){ 
-	        			 if (!((PropertyResult) result).getParent().getName().contains("consistent")) {
-	        			 	manager.add(addViewSupportConsole("Set of Support", manager, result));
-	        			 }
-	        		 }
-	        	}
-	    	}
-    	}
-    }
-    
-    //Anitha added this method to get "View Set of Support" Option in AGREE results window.
-    private IAction addViewSupportConsole(String text, IMenuManager manager, AnalysisResult result) {
-        return new Action(text) {
-        	public void run() { 
-        		Map<String, EObject> tempRefMap = linker.getReferenceMap(result.getParent());
-		        if (tempRefMap == null) {
-		            tempRefMap = linker.getReferenceMap(result);
-		        }
-		        final Map<String, EObject> refMap = tempRefMap;
-		        
-		       // System.out.println(refMap.toString());
-		        //Anitha: for some reason I am always getting the lustre  console
-		       // final MessageConsole console1 = findConsole("Lustre");
-		       // console1.clearConsole();
-		       // console1.destroy();        		
-		        
-        		final MessageConsole console = findConsole("Support");
-				showConsole(console);
-        		console.clearConsole();
-        		console.addPatternMatchListener(new AgreePatternListener(refMap));
-        		   new Thread(new Runnable() {
-        	            @Override
-        	            public void run() {
-				            try (MessageConsoleStream out = console.newMessageStream()) {                
-                    			 ValidProperty vp = (ValidProperty)(((PropertyResult) result).getProperty());
-                    			 printHLine(out, 2);
-            	        		 out.println("Set of Support for Gurantee: "+"{"+vp.getName()+"}");
-            	        		 printHLine(out, 2);
-            	        		 out.println("");
-                    			 if (!vp.getSupport().isEmpty()){
-	                    			 printHLine(out, 2);
-	                    			 out.println(String.format("%-25s%-25s","Component name","Property name"));
-	            	        		 printHLine(out, 2);
-	            	        		 for (String supportString : vp.getSupport()) {
-	            	        			 String componentName = "";
-	            	        			 String guranteeName =  "";
-	            	        			if (supportString.contains(".")) {
-	            	        			 componentName =  supportString.substring(0,supportString.indexOf('.'));        			
-	            	        			 guranteeName =  supportString.substring(supportString.indexOf('.')+1,supportString.length());
-	            	        			}else{
-	            	        				componentName = "Top Level System";
-	            	        				guranteeName=supportString;
-	            	        				//System.out.println("supportString " + refMap.get(supportString));
-	            	        			}
-	            	        			out.println(String.format("%-25s%-25s",componentName ,"{"+guranteeName+"}"));        			
-	            	        		 }
-	            	        		 printHLine(out, 2);   
-                    			 }else{
-                    				 out.println("There are no support elements to display.");
-                    			 }
-			                } catch (IOException e) {
-			                    e.printStackTrace();
-			                }
-        	            }
-                   }).start();
-        	}
-        };
-    }
-
 
     private void addOpenComponentMenu(IMenuManager manager, AnalysisResult result) {
         ComponentImplementation ci = linker.getComponent(result);
@@ -356,6 +140,7 @@ public class AgreeMenuListener implements IMenuListener {
                     viewCexConsole(cex, layout, refMap);
                 }
             });
+
             sub.add(new Action("Eclipse") {
                 @Override
                 public void run() {
@@ -369,16 +154,16 @@ public class AgreeMenuListener implements IMenuListener {
                     viewCexSpreadsheet(cex, layout);
                 }
             });
+
             // send counterexamples to external plugins
             EObject property = refMap.get(result.getName());
-            
             ComponentImplementation compImpl = linker.getComponent(result.getParent());
-            
+
             for (CexExtractor ex : extractors) {
-            	sub.add(new Action(ex.getDisplayText()) {
-                	@Override
+                sub.add(new Action(ex.getDisplayText()) {
+                    @Override
                     public void run() {
-                        ex.receiveCex(compImpl, property, cex, refMap);                       
+                        ex.receiveCex(compImpl, property, cex, refMap);
                     }
                 });
             }
@@ -386,7 +171,7 @@ public class AgreeMenuListener implements IMenuListener {
     }
 
     private void addViewLustreMenu(IMenuManager manager, AnalysisResult result) {
-    	Program program = linker.getProgram(result);
+        Program program = linker.getProgram(result);
         if (program == null && result instanceof PropertyResult) {
             program = linker.getProgram(result.getParent());
         }
@@ -447,7 +232,7 @@ public class AgreeMenuListener implements IMenuListener {
     }
 
     private IAction createHyperlinkAction(String text, final EObject eObject) {
-    	return new Action(text) {
+        return new Action(text) {
             @Override
             public void run() {
                 globalURIEditorOpener.open(EcoreUtil.getURI(eObject), true);
@@ -460,9 +245,10 @@ public class AgreeMenuListener implements IMenuListener {
         return new Action(actionName) {
             @Override
             public void run() {
-            	final MessageConsole console = findConsole(consoleName);
+                final MessageConsole console = findConsole(consoleName);
                 showConsole(console);
                 console.clearConsole();
+
                 /*
                  * From the Eclipse API: "Clients should avoid writing large
                  * amounts of output to this stream in the UI thread. The
@@ -514,10 +300,9 @@ public class AgreeMenuListener implements IMenuListener {
                         printHLine(out, cex.getLength());
 
                         for (Signal<Value> signal : cex.getCategorySignals(layout, category)) {
-                        	//System.out.println("signal.getName() : :  " + signal.getName());
                             // dont' print out values for properties
                             if (signal.getName().contains(":")) {
-                            	continue;
+                                continue;
                             }
                             out.print(String.format("%-60s", "{" + signal.getName() + "}"));
                             for (int k = 0; k < cex.getLength(); k++) {
