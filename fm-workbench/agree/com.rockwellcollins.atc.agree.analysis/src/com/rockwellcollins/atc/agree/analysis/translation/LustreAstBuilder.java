@@ -67,6 +67,7 @@ public class LustreAstBuilder {
     protected static final String guarSuffix = "__GUARANTEE";
     protected static final String assumeSuffix = "__ASSUME";
     protected static final String lemmaSuffix = "__LEMMA";
+    public static final String dotChar = "__";
 
     public static Program getRealizabilityLustreProgram(AgreeProgram agreeProgram) {
 
@@ -176,12 +177,48 @@ public class LustreAstBuilder {
         List<Equation> equations = new ArrayList<>();
         List<String> properties = new ArrayList<>();
 
+        List<String> setofsupport = new ArrayList<>();
+        int count = 0;
         for (AgreeStatement assumption : flatNode.assumptions) {
-            assertions.add(assumption.expr);
+            //assertions.add(assumption.expr);
+            String assumeName = "_TOP__"+"ASSUME"+dotChar+count;
+            locals.add(new AgreeVar(assumeName, NamedType.BOOL,assumption.reference, flatNode.compInst));
+            equations.add(new Equation(new IdExpr(assumeName), assumption.expr));
+            assertions.add(new IdExpr(assumeName));
+            count++;
+            setofsupport.add(assumeName);
         }
-
+        AgreeNode topNode =  agreeProgram.topNode;
+        count = 0;
+        for (AgreeStatement assertion : topNode.assertions) {
+			 EObject ref = null;
+			 if (assertion.expr.toString().contains("=")) {
+				 String lhs =  assertion.expr.toString().substring(1,assertion.expr.toString().indexOf('=')).trim();        			
+				 for (AgreeVar var : topNode.outputs) {
+					 ref = null; 
+					 if (var.id != null && var.id.toString().equals(lhs)) {
+						  ref = var.reference;
+						  break;
+					 }
+				}
+			}
+			String eqnName = "_TOP__"+"EQN"+dotChar+count;
+			locals.add(new AgreeVar(eqnName, NamedType.BOOL, ref, flatNode.compInst));
+			equations.add(new Equation(new IdExpr(eqnName), assertion.expr));   
+			assertions.add(new IdExpr(eqnName));
+			count++;
+			setofsupport.add(eqnName);
+        }
         for (AgreeStatement assertion : flatNode.assertions) {
+        	boolean equationAdded = false;
+        	for (AgreeStatement equation : topNode.assertions) {
+        		if (assertion.expr.equals(equation.expr)) {
+        			equationAdded = true;
+        		}
+        	}
+        	if (!equationAdded) {
             assertions.add(assertion.expr);
+        	}
         }
 
         int i = 0;
@@ -216,6 +253,7 @@ public class LustreAstBuilder {
         builder.addEquations(equations);
         builder.addProperties(properties);
         builder.addAssertions(assertions);
+        builder.addSupports(setofsupport);
         
         Node main = builder.build();
         nodes.add(main);
@@ -445,6 +483,7 @@ public class LustreAstBuilder {
         List<VarDecl> locals = new ArrayList<>();
         List<Equation> equations = new ArrayList<>();
         List<Expr> assertions = new ArrayList<>();
+        List<String> setofsupport = new ArrayList<>();
 
         Expr assumeConjExpr = new BoolExpr(true);
         int i = 0;
@@ -477,16 +516,29 @@ public class LustreAstBuilder {
         equations.add(new Equation(assumeConjId, assumeConjExpr));
         equations.add(getHist(assumeHistId, assumeConjId));
 
+        int count=0;
         Expr guarConjExpr = new BoolExpr(true);
+        if (monolithic) {
         for (AgreeStatement statement : agreeNode.guarantees) {
             guarConjExpr = new BinaryExpr(statement.expr, BinaryOp.AND, guarConjExpr);
         }
-        if (monolithic) {
+	        
             for (AgreeStatement statement : agreeNode.lemmas) {
                 guarConjExpr = new BinaryExpr(statement.expr, BinaryOp.AND, guarConjExpr);
             }
+        }else{ 
+	        Expr true_exp = new BoolExpr(true);
+	        for (AgreeStatement statement : agreeNode.guarantees) {
+	        	String guaranteeName = dotChar+agreeNode.id+dotChar+"PROP"+dotChar+count;
+	            locals.add(new AgreeVar(guaranteeName, NamedType.BOOL,statement.reference, agreeNode.compInst));
+	            equations.add(new Equation(new IdExpr(guaranteeName), statement.expr));
+	            count++;
+	            IdExpr newPropName = new IdExpr(guaranteeName);
+	            guarConjExpr = new BinaryExpr(newPropName, BinaryOp.AND, guarConjExpr);
+	            setofsupport.add(guaranteeName);
+	        }
         }
-        assertions.add(new BinaryExpr(assumeHistId, BinaryOp.IMPLIES, guarConjExpr));
+        Expr guarExpr = new BinaryExpr(assumeHistId, BinaryOp.IMPLIES, guarConjExpr);
 
         // we only add the assertions of an agreenode if we are performing
         // monolithic verification. However, we should add EQ statements
@@ -498,9 +550,32 @@ public class LustreAstBuilder {
         }
 
         Expr assertExpr = new BoolExpr(true);
+        count=0;
         for (Expr expr : assertions) {
-            assertExpr = new BinaryExpr(expr, BinaryOp.AND, assertExpr);
+			String lhs =  expr.toString();
+			if (!expr.toString().equals(null) && expr.toString().contains("=")) {
+				lhs =  expr.toString().substring(1,expr.toString().indexOf('=')).trim();
+			}
+			String exprName = lhs;
+			if (!lhs.contains("__ASSUME")){
+				exprName = dotChar+agreeNode.id+dotChar+"EXP"+dotChar+count;
+				EObject ref = null;
+	        	 for (AgreeVar var : agreeNode.outputs) {
+	        		 ref = null; 
+	        		 if (var.id != null && var.id.toString().equals(lhs)) {
+	        			  ref = var.reference;
+	        			  break;
+	        		 }
+	             }
+	        	 locals.add(new AgreeVar(exprName, NamedType.BOOL, ref , agreeNode.compInst));
+	        	 equations.add(new Equation(new IdExpr(exprName), expr));
+	             count++;
+	             setofsupport.add(exprName);
+			} 
+		     IdExpr newAssertName = new IdExpr(exprName);
+             assertExpr = new BinaryExpr(newAssertName, BinaryOp.AND, assertExpr);
         }
+        assertExpr = new BinaryExpr(assertExpr, BinaryOp.AND, new BinaryExpr(assumeHistId, BinaryOp.IMPLIES, guarConjExpr));
 
         String outputName = "__ASSERT";
         List<VarDecl> outputs = new ArrayList<>();
@@ -520,6 +595,7 @@ public class LustreAstBuilder {
         builder.addOutputs(outputs);
         builder.addLocals(locals);
         builder.addEquations(equations);
+        builder.addSupports(setofsupport);
         
         return builder.build();
     }
