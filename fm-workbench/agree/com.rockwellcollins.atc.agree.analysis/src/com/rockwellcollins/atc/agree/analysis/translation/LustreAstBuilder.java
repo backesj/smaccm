@@ -199,8 +199,8 @@ public class LustreAstBuilder {
         count = 0;
         for (AgreeStatement assertion : topNode.assertions) {
         	//Anitha: assertion can be eq or assert statements
-        	System.out.println(" asserion: " + assertion.reference);
-        	System.out.println(" asserion: " + assertion.expr.toString());
+        	//System.out.println(" asserion: " + assertion.reference);
+        	//System.out.println(" asserion: " + assertion.expr.toString());
 			
 			 //System.out.println("LustreAST lhs " + lhs);			
 			 EObject ref = null;
@@ -588,13 +588,18 @@ public class LustreAstBuilder {
         	//Anitha: I had to get a refernce for the equations. So I make the variables
         	//in the LHS as the reference.
         	//System.out.println("\n expr " + expr.toString());			
-			String lhs =  expr.toString().substring(1,expr.toString().indexOf('=')).trim();        			
-			//System.out.println("LustreAST lhs " + lhs);			
+			String lhs =  expr.toString();
+			
+			if (!expr.toString().equals(null) && expr.toString().contains("=")) {
+				lhs =  expr.toString().substring(1,expr.toString().indexOf('=')).trim();
+				//System.out.println("LustreAST lhs " + lhs);			
+			}
 			String exprName = lhs;
 			
 			//Anitha: an assertion can be a assumption. 
 			//We do not include in the set of support the subcomponent assumption
 			//since it is implied by system assumptions/component gurantees.
+			//if the assertion is not an assumption, then we add it to set of support
 			if (!lhs.contains("__ASSUME")){
 				exprName = dotChar+agreeNode.id+dotChar+"EXP"+dotChar+count;
 				EObject ref = null;
@@ -609,8 +614,7 @@ public class LustreAstBuilder {
 	        	 equations.add(new Equation(new IdExpr(exprName), expr));
 	             count++;
 	             setofsupport.add(exprName);
-			}
-             
+			} 
 		     IdExpr newAssertName = new IdExpr(exprName);
              assertExpr = new BinaryExpr(newAssertName, BinaryOp.AND, assertExpr);
             // System.out.println("assertExpr:  " + assertExpr);	

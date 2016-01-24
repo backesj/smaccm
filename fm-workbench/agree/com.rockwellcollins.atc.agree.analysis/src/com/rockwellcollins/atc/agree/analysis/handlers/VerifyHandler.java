@@ -556,8 +556,7 @@ public abstract class VerifyHandler extends AadlHandler {
             	activateTerminateHandlers(globalMonitor);
             	//Anitha: The code was calling KindApi. Iam going to change it to call jKindAPI to allow setting reduce support          	
             	KindApi api = PreferencesUtil.getKindApi();
-            	//JKindApi api = (JKindApi) PreferencesUtil.getKindApi(PreferenceConstants.MODEL_CHECKER_JKIND, null);
-                KindApi consistApi = PreferencesUtil.getConsistencyApi();
+            	KindApi consistApi = PreferencesUtil.getConsistencyApi();
                 JRealizabilityApi realApi = PreferencesUtil.getJRealizabilityApi();
                 while (!queue.isEmpty() && !globalMonitor.isCanceled()) {
                     JKindResult result = queue.peek();
@@ -570,11 +569,12 @@ public abstract class VerifyHandler extends AadlHandler {
                         } else if (result instanceof JRealizabilityResult) {
                             realApi.execute(program, (JRealizabilityResult) result, subMonitor);
                         } else {                        	
-                        	//System.out.println("Calling API : " + System.currentTimeMillis());
+                        	System.out.println("Calling API : " + System.currentTimeMillis());
                         	api.execute(program, result, subMonitor);
                         	//System.out.println("End calling API : " + System.currentTimeMillis());
                         }
                     } catch (JKindException e) {
+                    	e.printStackTrace();
                     	//Anitha: I changed the system.out to system.err
                         System.err.println("******** JKindException Text ********");
                         e.printStackTrace(System.out);
